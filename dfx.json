@@ -10,7 +10,7 @@
         "output": "frontend/src/declarations/profile"
       }
     },
-    "tickets": {
+    "ticket": {
       "type": "motoko",
       "main": "backend/ticket.mo",
       "declarations": {
@@ -19,7 +19,7 @@
       }
     },
     "frontend": {
-      "dependencies": ["test"],
+      "dependencies": ["profile", "ticket"],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
