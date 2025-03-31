@@ -2,12 +2,20 @@
   "version": 1,
   "dfx": "0.20.1",
   "canisters": {
-    "test": {
+    "profile": {
       "type": "motoko",
-      "main": "backend/main.mo",
+      "main": "backend/profile.mo",
       "declarations": {
         "node_compatibility": true,
-        "output": "frontend/src/declarations/test"
+        "output": "frontend/src/declarations/profile"
+      }
+    },
+    "tickets": {
+      "type": "motoko",
+      "main": "backend/ticket.mo",
+      "declarations": {
+        "node_compatibility": true,
+        "output": "frontend/src/declarations/ticket"
       }
     },
     "frontend": {

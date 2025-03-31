@@ -1,7 +1,7 @@
 import Bool "mo:base/Bool";
 import Array "mo:base/Array";
 import Types "./Types";
-actor {
+actor Tickets{
 
     stable var tickets : [Types.Ticket] = [];
 
