@@ -3,7 +3,6 @@ import Array "mo:base/Array";
 import Types "./Types";
 actor {
 
-
     stable var tickets : [Types.Ticket] = [];
 
     public shared func mint(owner : Principal, svg : Text) : async Text {
