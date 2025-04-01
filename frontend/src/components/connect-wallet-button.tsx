@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "./ui/button"
+import { Button } from "@/components/ui/button"
 import { Wallet, Loader2 } from "lucide-react"
-import { useWallet } from "./wallet-provider"
+import { useAuth } from "@/lib/auth/auth-provider"
 import {
   Dialog,
   DialogContent,
@@ -11,11 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog"
-import { toast } from "./ui/use-toast"
+} from "@/components/ui/dialog"
+import { toast } from "@/components/ui/use-toast"
 
 export function ConnectWalletButton() {
-  const { isConnected, connect, disconnect, address, isConnecting: isWalletConnecting } = useWallet()
+  const { isAuthenticated, principal, login, logout, isAuthenticating } = useAuth()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isDisconnecting, setIsDisconnecting] = useState(false)
@@ -23,12 +23,17 @@ export function ConnectWalletButton() {
   const handleConnect = async (type: "plug" | "ii") => {
     try {
       setIsConnecting(true)
-      await connect(type)
-      setIsDialogOpen(false)
-      toast({
-        title: "Wallet connected",
-        description: `You have successfully connected your ${type === "plug" ? "Plug" : "Internet Identity"} wallet.`,
-      })
+      const success = await login(type)
+
+      if (success) {
+        setIsDialogOpen(false)
+        toast({
+          title: "Wallet connected",
+          description: `You have successfully connected your ${type === "plug" ? "Plug" : "Internet Identity"} wallet.`,
+        })
+      } else {
+        throw new Error("Failed to connect")
+      }
     } catch (error) {
       console.error("Connection error:", error)
       toast({
@@ -44,7 +49,7 @@ export function ConnectWalletButton() {
   const handleDisconnect = async () => {
     try {
       setIsDisconnecting(true)
-      await disconnect()
+      await logout()
       toast({
         title: "Wallet disconnected",
         description: "You have successfully disconnected your wallet.",
@@ -61,7 +66,7 @@ export function ConnectWalletButton() {
     }
   }
 
-  if (isConnected) {
+  if (isAuthenticated && principal) {
     return (
       <Button
         variant="outline"
@@ -70,7 +75,7 @@ export function ConnectWalletButton() {
         disabled={isDisconnecting}
       >
         {isDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wallet className="mr-2 h-4 w-4" />}
-        {address?.slice(0, 6)}...{address?.slice(-4)}
+        {principal.toString().slice(0, 6)}...{principal.toString().slice(-4)}
       </Button>
     )
   }
@@ -89,11 +94,7 @@ export function ConnectWalletButton() {
           <DialogDescription>Connect your wallet to mint and manage NFT tickets.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <Button
-            onClick={() => handleConnect("plug")}
-            className="w-full"
-            disabled={isConnecting || isWalletConnecting}
-          >
+          <Button onClick={() => handleConnect("plug")} className="w-full" disabled={isConnecting || isAuthenticating}>
             {isConnecting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -110,7 +111,7 @@ export function ConnectWalletButton() {
             onClick={() => handleConnect("ii")}
             variant="outline"
             className="w-full"
-            disabled={isConnecting || isWalletConnecting}
+            disabled={isConnecting || isAuthenticating}
           >
             {isConnecting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

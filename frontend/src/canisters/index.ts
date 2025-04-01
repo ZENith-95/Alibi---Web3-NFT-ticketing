@@ -1,11 +1,20 @@
 import { CandidCanister } from "@bundly/ares-core";
+import { EventsActor, events } from "./events";
+import { ProfileActor, profile } from "./profile";
 
-import { TestActor, test } from "./test";
+// Remove the test import since we're not using it
+// import { TestActor, test } from "./test";
 
 export type CandidActors = {
-  test: TestActor;
+  events: EventsActor;
+  profile: ProfileActor;
+  // Remove test from the actors
+  // test: TestActor;
 };
 
 export let candidCanisters: Record<keyof CandidActors, CandidCanister> = {
-  test,
+  events,
+  profile,
+  // Remove test from the canisters
+  // test,
 };

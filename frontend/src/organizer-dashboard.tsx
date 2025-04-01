@@ -62,6 +62,20 @@ export default function OrganizerDashboard() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false)
   const [isGeneratingTickets, setIsGeneratingTickets] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
+  const [eventForm, setEventForm] = useState({
+    name: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    artStyle: "modern",
+    ticketTypes: [] as Array<{
+      name: string
+      price: bigint
+      capacity: bigint
+      description: string | null
+    }>,
+  })
 
   // Mock data for events
   const events = [
@@ -128,6 +142,82 @@ export default function OrganizerDashboard() {
     setTimeout(() => {
       setIsGeneratingTickets(false)
     }, 2000)
+  }
+
+  const handleAddTicketType = () => {
+    setEventForm(prev => ({
+      ...prev,
+      ticketTypes: [
+        ...prev.ticketTypes,
+        {
+          name: "",
+          price: BigInt(0),
+          capacity: BigInt(0),
+          description: null
+        }
+      ]
+    }))
+  }
+
+  const handleRemoveTicketType = (index: number) => {
+    setEventForm(prev => ({
+      ...prev,
+      ticketTypes: prev.ticketTypes.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleTicketTypeChange = (index: number, field: string, value: string) => {
+    setEventForm(prev => ({
+      ...prev,
+      ticketTypes: prev.ticketTypes.map((tt, i) => {
+        if (i === index) {
+          return {
+            ...tt,
+            [field]: field === "name" || field === "description" ? value : BigInt(value)
+          }
+        }
+        return tt
+      })
+    }))
+  }
+
+  const handleCreateEvent = async () => {
+    try {
+      // Validate form
+      if (!eventForm.name || !eventForm.description || !eventForm.date || !eventForm.time || !eventForm.location) {
+        alert("Please fill in all required fields")
+        return
+      }
+
+      if (eventForm.ticketTypes.length === 0) {
+        alert("Please add at least one ticket type")
+        return
+      }
+
+      // Create event
+      const result = await icApi.createEvent(eventForm)
+      
+      if ("ok" in result) {
+        setIsCreatingEvent(false)
+        // Reset form
+        setEventForm({
+          name: "",
+          description: "",
+          date: "",
+          time: "",
+          location: "",
+          artStyle: "modern",
+          ticketTypes: []
+        })
+        // Refresh events list
+        // TODO: Add refresh logic
+      } else {
+        alert("Failed to create event: " + JSON.stringify(result.err))
+      }
+    } catch (error) {
+      console.error("Error creating event:", error)
+      alert("Failed to create event. Please try again.")
+    }
   }
 
   return (
@@ -888,23 +978,43 @@ export default function OrganizerDashboard() {
                       <div className="space-y-4">
                         <div>
                           <label className="text-sm text-slate-400 mb-1 block">Event Name</label>
-                          <Input placeholder="Enter event name" className="bg-slate-700 border-slate-600" />
+                          <Input 
+                            placeholder="Enter event name" 
+                            className="bg-slate-700 border-slate-600"
+                            value={eventForm.name}
+                            onChange={(e) => setEventForm(prev => ({ ...prev, name: e.target.value }))}
+                          />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="text-sm text-slate-400 mb-1 block">Date</label>
-                            <Input type="date" className="bg-slate-700 border-slate-600" />
+                            <Input 
+                              type="date" 
+                              className="bg-slate-700 border-slate-600"
+                              value={eventForm.date}
+                              onChange={(e) => setEventForm(prev => ({ ...prev, date: e.target.value }))}
+                            />
                           </div>
                           <div>
                             <label className="text-sm text-slate-400 mb-1 block">Time</label>
-                            <Input type="time" className="bg-slate-700 border-slate-600" />
+                            <Input 
+                              type="time" 
+                              className="bg-slate-700 border-slate-600"
+                              value={eventForm.time}
+                              onChange={(e) => setEventForm(prev => ({ ...prev, time: e.target.value }))}
+                            />
                           </div>
                         </div>
 
                         <div>
                           <label className="text-sm text-slate-400 mb-1 block">Location</label>
-                          <Input placeholder="Enter event location" className="bg-slate-700 border-slate-600" />
+                          <Input 
+                            placeholder="Enter event location" 
+                            className="bg-slate-700 border-slate-600"
+                            value={eventForm.location}
+                            onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
+                          />
                         </div>
 
                         <div>
@@ -912,37 +1022,56 @@ export default function OrganizerDashboard() {
                           <textarea
                             placeholder="Enter event description"
                             className="w-full h-24 px-3 py-2 rounded-md bg-slate-700 border border-slate-600 text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                          ></textarea>
+                            value={eventForm.description}
+                            onChange={(e) => setEventForm(prev => ({ ...prev, description: e.target.value }))}
+                          />
                         </div>
 
                         <div>
                           <label className="text-sm text-slate-400 mb-1 block">Ticket Types</label>
                           <div className="space-y-2">
-                            <div className="p-3 rounded-md bg-slate-700 border border-slate-600">
-                              <div className="flex items-center justify-between mb-2">
-                                <Input
-                                  placeholder="Ticket name (e.g. General Admission)"
-                                  className="bg-slate-600 border-slate-500 w-48"
-                                />
-                                <Input
-                                  type="number"
-                                  placeholder="Price in ICP"
-                                  className="bg-slate-600 border-slate-500 w-32"
-                                />
+                            {eventForm.ticketTypes.map((ticketType, index) => (
+                              <div key={index} className="p-3 rounded-md bg-slate-700 border border-slate-600">
+                                <div className="flex items-center justify-between mb-2">
+                                  <Input
+                                    placeholder="Ticket name (e.g. General Admission)"
+                                    className="bg-slate-600 border-slate-500 w-48"
+                                    value={ticketType.name}
+                                    onChange={(e) => handleTicketTypeChange(index, "name", e.target.value)}
+                                  />
+                                  <Input
+                                    type="number"
+                                    placeholder="Price in ICP"
+                                    className="bg-slate-600 border-slate-500 w-32"
+                                    value={ticketType.price.toString()}
+                                    onChange={(e) => handleTicketTypeChange(index, "price", e.target.value)}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <Input
+                                    type="number"
+                                    placeholder="Quantity"
+                                    className="bg-slate-600 border-slate-500 w-32"
+                                    value={ticketType.capacity.toString()}
+                                    onChange={(e) => handleTicketTypeChange(index, "capacity", e.target.value)}
+                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-slate-400"
+                                    onClick={() => handleRemoveTicketType(index)}
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <Input
-                                  type="number"
-                                  placeholder="Quantity"
-                                  className="bg-slate-600 border-slate-500 w-32"
-                                />
-                                <Button variant="ghost" size="icon" className="text-slate-400">
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
+                            ))}
 
-                            <Button variant="outline" className="w-full border-dashed border-slate-600">
+                            <Button 
+                              variant="outline" 
+                              className="w-full border-dashed border-slate-600"
+                              onClick={handleAddTicketType}
+                            >
                               <Plus className="h-4 w-4 mr-2" />
                               Add Ticket Type
                             </Button>
@@ -951,10 +1080,17 @@ export default function OrganizerDashboard() {
                       </div>
                     </CardContent>
                     <CardFooter className="flex justify-between border-t border-slate-700 pt-4">
-                      <Button variant="outline" onClick={() => setIsCreatingEvent(false)} className="border-slate-700">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsCreatingEvent(false)} 
+                        className="border-slate-700"
+                      >
                         Cancel
                       </Button>
-                      <Button className="bg-gradient-to-r from-cyan-500 to-blue-500">
+                      <Button 
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500"
+                        onClick={handleCreateEvent}
+                      >
                         <Plus className="h-4 w-4 mr-2" />
                         Create Event
                       </Button>

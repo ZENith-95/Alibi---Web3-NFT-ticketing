@@ -1,0 +1,111 @@
+type TicketType = 
+ record {
+   capacity: nat;
+   description: opt text;
+   id: nat;
+   name: text;
+   price: nat;
+   sold: nat;
+ };
+type TicketMetadata = 
+ record {
+   attributes: vec record {
+                     text;
+                     text;
+                   };
+   description: text;
+   imageUrl: opt text;
+   name: text;
+ };
+type Ticket = 
+ record {
+   eventId: nat;
+   id: nat;
+   isUsed: bool;
+   metadata: TicketMetadata;
+   mintedAt: nat64;
+   owner: principal;
+   ticketTypeId: nat;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: Event;
+ };
+type Result_2 = 
+ variant {
+   err: Error;
+   ok: Ticket;
+ };
+type Result_1 = 
+ variant {
+   err: Error;
+   ok: nat;
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok: bool;
+ };
+type MintTicketRequest = 
+ record {
+   eventId: nat;
+   imageUrl: text;
+   ticketTypeId: nat;
+ };
+type Event = 
+ record {
+   artStyle: text;
+   createdAt: nat64;
+   date: text;
+   description: text;
+   id: nat;
+   imageUrl: opt text;
+   isActive: bool;
+   location: text;
+   name: text;
+   organizer: principal;
+   ticketTypes: vec TicketType;
+   ticketsSold: nat;
+   time: text;
+   totalCapacity: nat;
+ };
+type Error = 
+ variant {
+   AlreadyExists;
+   CannotModify;
+   InvalidInput;
+   NotAuthorized;
+   NotFound;
+   SoldOut;
+   SystemError;
+ };
+type CreateTicketTypeRequest = 
+ record {
+   capacity: nat;
+   description: opt text;
+   name: text;
+   price: nat;
+ };
+type CreateEventRequest = 
+ record {
+   artStyle: text;
+   date: text;
+   description: text;
+   imageUrl: opt text;
+   location: text;
+   name: text;
+   ticketTypes: vec CreateTicketTypeRequest;
+   time: text;
+ };
+service : {
+  createEvent: (CreateEventRequest) -> (Result_1);
+  getAllEvents: () -> (vec Event) query;
+  getEvent: (nat) -> (Result_3) query;
+  getOrganizerEvents: (principal) -> (vec Event) query;
+  getTicket: (nat) -> (Result_2) query;
+  getTicketQRCode: (nat) -> (text) query;
+  getUserTickets: (principal) -> (vec Ticket) query;
+  mintTicket: (MintTicketRequest) -> (Result_1);
+  verifyTicket: (nat) -> (Result);
+}

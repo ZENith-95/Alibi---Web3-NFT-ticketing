@@ -10,16 +10,16 @@
         "output": "frontend/src/declarations/profile"
       }
     },
-    "ticket": {
+    "events": {
       "type": "motoko",
-      "main": "backend/ticket.mo",
+      "main": "backend/events.mo",
       "declarations": {
         "node_compatibility": true,
-        "output": "frontend/src/declarations/ticket"
+        "output": "frontend/src/declarations/events"
       }
     },
     "frontend": {
-      "dependencies": ["profile", "ticket"],
+      "dependencies": ["profile", "events"],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },

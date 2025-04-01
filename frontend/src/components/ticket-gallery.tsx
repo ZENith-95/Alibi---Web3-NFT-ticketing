@@ -1,140 +1,122 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { TicketCard } from "./ticket-card"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs"
-import { Skeleton } from "./ui/skeleton"
-import { useWallet } from "./wallet-provider"
-import { mockTickets } from "../lib/mock-data"
-import { Button } from "./ui/button"
-import { Ticket } from "lucide-react"
+import { useState } from "react"
 import Link from "next/link"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Calendar, MapPin, Clock, QrCode, ExternalLink } from "lucide-react"
+import type { Ticket } from "@/lib/ic-api"
+import { icApi } from "@/lib/ic-api"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
-export function TicketGallery() {
-  const [tickets, setTickets] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const { isConnected } = useWallet()
+interface TicketGalleryProps {
+  tickets: Ticket[]
+}
 
-  useEffect(() => {
-    // Simulate API call to fetch tickets
-    const fetchTickets = async () => {
-      setIsLoading(true)
-      // In a real implementation, we would fetch from the canister
-      // For now, we'll just use mock data with a delay to simulate loading
-      setTimeout(() => {
-        setTickets(isConnected ? mockTickets : [])
-        setIsLoading(false)
-      }, 1500)
+export function TicketGallery({ tickets }: TicketGalleryProps) {
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleShowQR = async (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setIsLoading(true)
+
+    try {
+      const qrCodeSvg = await icApi.getTicketQRCode(ticket.id)
+      setQrCode(qrCodeSvg)
+    } catch (error) {
+      console.error("Error generating QR code:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    fetchTickets()
-  }, [isConnected])
-
-  const upcomingTickets = tickets.filter((ticket) => new Date(ticket.eventDate) >= new Date())
-  const pastTickets = tickets.filter((ticket) => new Date(ticket.eventDate) < new Date())
-
-  if (!isConnected) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="bg-secondary/50 rounded-full p-6 mb-6">
-          <Ticket className="h-12 w-12 text-primary" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">Connect Your Wallet</h2>
-        <p className="text-muted-foreground max-w-md mb-6">
-          Connect your wallet to view your NFT tickets and manage your event RSVPs.
-        </p>
-        <Button asChild>
-          <Link href="/">Browse Events</Link>
-        </Button>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div>
-        <Tabs defaultValue="upcoming">
-          <TabsList className="mb-6">
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="past">Past</TabsTrigger>
-          </TabsList>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array(3)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="rounded-lg overflow-hidden border border-border">
-                  <Skeleton className="h-64 w-full" />
-                  <div className="p-4 space-y-3">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </div>
-                </div>
-              ))}
-          </div>
-        </Tabs>
-      </div>
-    )
-  }
-
-  if (tickets.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="bg-secondary/50 rounded-full p-6 mb-6">
-          <Ticket className="h-12 w-12 text-primary" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">No Tickets Found</h2>
-        <p className="text-muted-foreground max-w-md mb-6">
-          You haven't RSVP'd to any events yet. Browse upcoming events and get your first NFT ticket.
-        </p>
-        <Button asChild>
-          <Link href="/">Browse Events</Link>
-        </Button>
-      </div>
-    )
   }
 
   return (
-    <div>
-      <Tabs defaultValue="upcoming">
-        <TabsList className="mb-6">
-          <TabsTrigger value="upcoming">Upcoming ({upcomingTickets.length})</TabsTrigger>
-          <TabsTrigger value="past">Past ({pastTickets.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="upcoming">
-          {upcomingTickets.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingTickets.map((ticket) => (
-                <TicketCard key={ticket.id} ticket={ticket} />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {tickets.map((ticket) => (
+        <Card key={ticket.id.toString()} className="overflow-hidden">
+          <div className="aspect-video w-full bg-muted relative">
+            {ticket.metadata.imageUrl ? (
+              <img
+                src={ticket.metadata.imageUrl || "/placeholder.svg"}
+                alt={ticket.metadata.name}
+                className="object-cover w-full h-full"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full bg-muted">
+                <span className="text-muted-foreground">No image available</span>
+              </div>
+            )}
+            <Badge className="absolute top-2 right-2" variant={ticket.isUsed ? "secondary" : "default"}>
+              {ticket.isUsed ? "Used" : "Valid"}
+            </Badge>
+          </div>
+          <CardHeader>
+            <CardTitle>{ticket.metadata.name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">{ticket.metadata.description}</p>
+            <div className="space-y-2 text-sm">
+              {ticket.metadata.attributes.map(([key, value]) => (
+                <div key={key} className="flex items-center">
+                  {key === "date" && <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />}
+                  {key === "time" && <Clock className="h-4 w-4 mr-2 text-muted-foreground" />}
+                  {key === "location" && <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />}
+                  {!["date", "time", "location"].includes(key) && <div className="h-4 w-4 mr-2" />}
+                  <span className="capitalize font-medium">{key}:</span>
+                  <span className="ml-1">{value}</span>
+                </div>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <h3 className="text-xl font-medium mb-2">No Upcoming Events</h3>
-              <p className="text-muted-foreground mb-6">You don't have tickets for any upcoming events.</p>
-              <Button asChild>
-                <Link href="/">Browse Events</Link>
-              </Button>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="past">
-          {pastTickets.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pastTickets.map((ticket) => (
-                <TicketCard key={ticket.id} ticket={ticket} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <h3 className="text-xl font-medium mb-2">No Past Events</h3>
-              <p className="text-muted-foreground">You haven't attended any events yet.</p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" onClick={() => handleShowQR(ticket)}>
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Show QR Code
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Ticket QR Code</DialogTitle>
+                  <DialogDescription>Present this QR code at the event entrance for verification.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col items-center justify-center p-4">
+                  {isLoading ? (
+                    <div className="w-64 h-64 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    </div>
+                  ) : qrCode ? (
+                    <div className="w-64 h-64 bg-white p-2" dangerouslySetInnerHTML={{ __html: qrCode }} />
+                  ) : (
+                    <div className="w-64 h-64 flex items-center justify-center bg-muted">
+                      <span className="text-muted-foreground">QR code not available</span>
+                    </div>
+                  )}
+                  <p className="mt-4 text-sm text-center text-muted-foreground">Ticket ID: {ticket.id.toString()}</p>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button asChild size="sm">
+              <Link href={`/events/${ticket.eventId.toString()}`}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View Event
+              </Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      ))}
     </div>
   )
 }
