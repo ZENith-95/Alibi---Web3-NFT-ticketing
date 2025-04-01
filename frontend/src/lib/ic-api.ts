@@ -649,102 +649,33 @@ export class IcApi {
 
   async createEvent(request: CreateEventRequest): Promise<Result<bigint, Error>> {
     try {
-      if (!this.actor) {
+      // Ensure actor and identity are initialized
+      if (!this.actor || !this.identity) {
         await this.initializeActor()
-      }
-
-      if (!this.identity) {
-        return { err: { NotAuthorized: null } }
-      }
-
-      if (this.actor) {
-        try {
-          // Transform the request to the canister format
-          const canisterRequest = this.transformCreateEventRequest(request)
-
-          console.log('Creating event with request:', canisterRequest)
-
-          // In development mode, handle certificate verification errors
-          if (process.env.NODE_ENV !== "production") {
-            let retries = 3
-            while (retries > 0) {
-              try {
-                const result = await this.actor.createEvent(canisterRequest)
-                if ("ok" in result) {
-                  // Convert Nat to bigint
-                  const eventId = BigInt(result.ok)
-                  
-                  // Clear organizer events cache
-                  const organizer = this.identity.getPrincipal()
-                  this.organizerEventsCache.delete(organizer.toString())
-
-                  // Notify listeners
-                  this.notifyListeners("event-created")
-
-                  return { ok: eventId }
-                }
-                console.error('Event creation failed:', result)
-                return result
-              } catch (error) {
-                if (error instanceof Error && error.message.includes("Invalid certificate")) {
-                  retries--
-                  if (retries === 0) {
-                    throw error
-                  }
-                  console.warn(`Certificate verification failed, retrying... (${retries} attempts left)`)
-                  
-                  // Reinitialize the actor with a fresh agent
-                  this.agent = new HttpAgent({
-                    host: this.host,
-                    identity: this.identity,
-                  })
-                  await this.agent.fetchRootKey()
-                  
-                  // Recreate the actor
-                  this.actor = Actor.createActor(idlFactory, {
-                    agent: this.agent,
-                    canisterId: this.canisterId,
-                  })
-
-                  // Wait a bit before retrying
-                  await new Promise(resolve => setTimeout(resolve, 1000))
-                  continue
-                }
-                throw error
-              }
-            }
-          } else {
-            // Production mode - normal flow
-            const result = await this.actor.createEvent(canisterRequest)
-            if ("ok" in result) {
-              // Convert Nat to bigint
-              const eventId = BigInt(result.ok)
-              
-              // Clear organizer events cache
-              const organizer = this.identity.getPrincipal()
-              this.organizerEventsCache.delete(organizer.toString())
-
-              // Notify listeners
-              this.notifyListeners("event-created")
-
-              return { ok: eventId }
-            }
-            return result
-          }
-        } catch (error) {
-          console.error("Actor call failed in createEvent:", error)
-
-          // Mock implementation for development
-          if (process.env.NODE_ENV !== "production") {
-            console.log("Using mock event creation")
-            return { ok: BigInt(Date.now()) }
-          } else {
-            throw error
-          }
+        if (!this.actor || !this.identity) {
+          throw new Error("Failed to initialize actor")
         }
       }
 
-      throw new Error("Actor not initialized")
+      // Transform the request into canister format
+      const canisterRequest = this.transformCreateEventRequest(request)
+
+      console.log("Creating event with request:", canisterRequest)
+
+      // Call the canister's createEvent method
+      const result = await this.actor.createEvent(canisterRequest)
+
+      console.log("Event creation result:", result)
+
+      if ('err' in result) {
+        return result
+      }
+
+      // Clear the organizer events cache and notify listeners
+      this.organizerEventsCache.clear()
+      this.notifyListeners("event-created")
+
+      return result
     } catch (error) {
       console.error("Error creating event:", error)
       return { err: { SystemError: null } }
