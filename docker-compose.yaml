@@ -1,0 +1,43 @@
+services:
+  replica:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    container_name: motoko_replica
+    command: >
+      sh -c "dfx stop && sleep 2 && dfx start --host 0.0.0.0:8200 --background && tail -f /dev/null"
+    volumes:
+      - .:/app
+    working_dir: /app
+    ports:
+      - "8200:8200"
+    environment:
+      - PORT=8200
+      - DFX_NETWORK=local
+    networks:
+      - alibi
+  backend:
+    build:
+      dockerfile: Dockerfile
+      context: .
+    container_name: motoko_backend
+    command: >
+      sh -c "sleep 10 && dfx canister create events --network http://replica:8200 --with-cycles 1000000000000 --specified-id by6od-j4aaa-aaaaa-qaadq-cai && dfx deploy --network http://replica:8200"
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - PORT=8200
+      - DFX_NETWORK=http://replica:8200
+      - CANISTER_ID_FRONTEND=avqkn-guaaa-aaaaa-qaaea-cai
+      - CANISTER_ID_INTERNET_IDENTITY=asrmz-lmaaa-aaaaa-qaaeq-cai
+      - CANISTER_ID_EVENTS=by6od-j4aaa-aaaaa-qaadq-cai
+      - CANISTER_ID_PROFILE=a3shf-5eaaa-aaaaa-qaafa-cai
+    networks:
+      - alibi
+    depends_on:
+      - replica
+
+networks:
+  alibi:
+    driver: bridge
