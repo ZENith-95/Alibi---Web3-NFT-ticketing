@@ -7,6 +7,7 @@ import type { Principal } from "@dfinity/principal"
 import { Ed25519KeyIdentity } from "@dfinity/identity"
 import { icApi } from "@/lib/ic-api"
 import { safeString } from "@/lib/utils/string-utils"
+import { toast } from "@/components/ui/use-toast"
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -133,47 +134,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       } else if (authType === "plug") {
         // Plug wallet authentication
-        if (hasIcWallet("plug")) {
-          try {
-            const plugWallet = getPlugWallet()
-            if (!plugWallet) {
-              throw new Error("Plug wallet not available")
-            }
+        if (!hasIcWallet("plug")) {
+          console.error("Plug wallet extension not detected. Please install the Plug wallet extension from https://plugwallet.ooo/")
+          toast({
+            title: "Plug Wallet Not Found",
+            description: "Please install the Plug wallet extension from https://plugwallet.ooo/",
+            variant: "destructive",
+          })
+          return false
+        }
 
-            // Get canister IDs from environment
-            const eventsCanisterId = safeString(process.env.NEXT_PUBLIC_EVENTS_CANISTER_ID)
-            const profileCanisterId = safeString(process.env.NEXT_PUBLIC_PROFILE_CANISTER_ID)
-            const host = safeString(process.env.NEXT_PUBLIC_IC_HOST || "http://localhost:4943")
-
-            if (!eventsCanisterId || !profileCanisterId) {
-              throw new Error("Canister IDs not configured")
-            }
-
-            // @ts-ignore - Plug types are not available
-            const connected = await plugWallet.requestConnect({
-              whitelist: [eventsCanisterId, profileCanisterId],
-              host,
-            })
-
-            if (connected) {
-              const identity = await plugWallet.createActor({
-                canisterId: eventsCanisterId,
-                interfaceFactory: idlFactory,
-              })
-              const principal = identity.getPrincipal()
-
-              setIdentity(identity as any)
-              setPrincipal(principal as any)
-              setIsAuthenticated(true)
-
-              // Set identity in the API with type assertion
-              await icApi.setIdentity(identity as any)
-
-              return true
-            }
-          } catch (error) {
-            console.error("Plug wallet authentication error:", error)
+        try {
+          const plugWallet = getPlugWallet()
+          if (!plugWallet) {
+            throw new Error("Plug wallet not available")
           }
+
+          // Request connection
+          const connected = await plugWallet.requestConnect({
+            whitelist: [],
+            host: safeString(process.env.NEXT_PUBLIC_IC_HOST || "http://localhost:4943"),
+          })
+
+          if (!connected) {
+            throw new Error("Failed to connect to Plug wallet")
+          }
+
+          // Get the principal
+          const principal = await plugWallet.getPrincipal()
+          if (!principal) {
+            throw new Error("Failed to get principal from Plug wallet")
+          }
+
+          // Create an identity from the Plug wallet
+          const identity = await plugWallet.createAgent({
+            whitelist: [],
+            host: safeString(process.env.NEXT_PUBLIC_IC_HOST || "http://localhost:4943"),
+          })
+
+          setIdentity(identity)
+          setPrincipal(principal)
+          setIsAuthenticated(true)
+
+          // Set identity in the API
+          await icApi.setIdentity(identity)
+
+          return true
+        } catch (error) {
+          console.error("Plug wallet connection error:", error)
+          toast({
+            title: "Connection Failed",
+            description: "Failed to connect to Plug wallet. Please make sure the extension is installed and unlocked.",
+            variant: "destructive",
+          })
+          return false
         }
       }
       return false

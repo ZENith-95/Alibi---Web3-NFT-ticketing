@@ -1,3 +1,6 @@
+// React + Nextjs + Typescript + Motoko
+
+//folder structure
 .
 ├── backend
 │   ├── events.mo
@@ -41389,3 +41392,24 @@
 └── turbo.json
 
 3204 directories, 38184 files
+
+
+
+# inside frontend folder
+
+# folder structure
+// the src/app/ folder contains the pages and the layout
+// the src/components/ folder contains the components
+// the src/hooks/ folder contains the hooks
+// the src/lib/ folder contains the lib
+// the src/styles/ folder contains the styles
+// the src/types/ folder contains the types
+
+# components
+
+# hooks
+
+# lib
+
+# pages
+
