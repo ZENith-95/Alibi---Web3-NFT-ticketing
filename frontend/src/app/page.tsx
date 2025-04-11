@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEvents } from '@/hooks/use-events';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Calendar, Ticket, Users } from 'lucide-react';
+import { EventStatus, useICPEvents } from '@/hooks/useEvents';
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
-  const { events, isLoading } = useEvents();
+  const { events, status } = useICPEvents();
   const [featuredEvents, setFeaturedEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function HomePage() {
         {/* Featured Events */}
         <div className="mb-16">
           <h2 className="text-3xl font-bold mb-8 text-center">Featured Events</h2>
-          {isLoading ? (
+          {status==EventStatus.LOADING ? (
             <div className="text-center py-8">Loading events...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

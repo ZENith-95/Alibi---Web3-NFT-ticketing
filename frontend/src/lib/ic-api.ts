@@ -278,51 +278,38 @@ export class IcApi {
         throw new Error("Canister IDs not configured")
       }
 
-      // Create a new agent with the current identity
-      if (!this.identity) {
-        // Try to get the current identity
-        const authClient = await AuthClient.create()
-        if (!authClient) {
-          throw new Error("Failed to initialize identity")
-        }
-        this.identity = authClient.getIdentity()
-      }
-
+      // Create a new agent first
       this.agent = new HttpAgent({
         host: this.host,
-        identity: this.identity,
       })
 
-      // In development mode, always fetch the root key
-      if (process.env.NODE_ENV !== "production") {
+      // Always fetch the root key in development mode
+      if (process.env.NODE_ENV !== "production" || this.host.includes("localhost")) {
         try {
-          // Fetch root key with retries
-          let retries = 3
-          while (retries > 0) {
-            try {
-              await this.agent.fetchRootKey()
-              console.log("Successfully fetched root key")
-              break
-            } catch (error) {
-              retries--
-              if (retries === 0) {
-                throw error
-              }
-              console.warn(`Failed to fetch root key, retrying... (${retries} attempts left)`)
-              // Wait a bit before retrying
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            }
-          }
-        } catch (error) {
-          console.warn("Failed to fetch root key after retries:", error)
-          // Create a new agent and try one last time
-          this.agent = new HttpAgent({
-            host: this.host,
-            identity: this.identity,
-          })
+          console.log("Fetching root key...")
           await this.agent.fetchRootKey()
-          console.log("Successfully fetched root key on final attempt")
+          console.log("Successfully fetched root key")
+        } catch (error) {
+          console.error("Failed to fetch root key:", error)
+          throw error
         }
+      }
+
+      // Then handle identity
+      if (!this.identity) {
+        try {
+          const authClient = await AuthClient.create()
+          if (!authClient) {
+            throw new Error("Failed to initialize identity")
+          }
+          this.identity = authClient.getIdentity()
+          this.agent.replaceIdentity(this.identity)
+        } catch (error) {
+          console.error("Failed to initialize identity:", error)
+          // Continue without identity for query calls
+        }
+      } else {
+        this.agent.replaceIdentity(this.identity)
       }
 
       // Initialize events actor with the new agent
@@ -517,7 +504,26 @@ export class IcApi {
 
       if (this.actor) {
         try {
-          const result = await this.actor.getAllEvents()
+          // Create a new agent for this call to ensure fresh state
+          const agent = new HttpAgent({
+            host: this.host,
+          })
+
+          if (process.env.NODE_ENV !== "production" || this.host.includes("localhost")) {
+            await agent.fetchRootKey()
+          }
+
+          if (this.identity) {
+            agent.replaceIdentity(this.identity)
+          }
+
+          // Create a new actor with the fresh agent
+          const freshActor = Actor.createActor(idlFactory, {
+            agent,
+            canisterId: this.canisterId,
+          })
+
+          const result = await freshActor.getAllEvents()
 
           // Transform the result to our Event interface
           const events: Event[] = result.map((event) => this.transformCanisterEvent(event))
@@ -529,7 +535,7 @@ export class IcApi {
 
           return events
         } catch (error) {
-          console.warn("Actor call failed in getAllEvents, using mock implementation:", error)
+          console.warn("Actor call failed in getAllEvents:", error)
 
           // Mock implementation for development
           if (process.env.NODE_ENV !== "production") {

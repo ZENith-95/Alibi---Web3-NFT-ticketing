@@ -2,18 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEvents } from '@/hooks/use-events';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Ticket } from 'lucide-react';
+import { EventStatus, useICPEvents } from '@/hooks/useEvents';
 
 export default function EventsPage() {
   const { isAuthenticated } = useAuth();
-  const { events, isLoading, error } = useEvents();
+  const { events, status, errorMsg,fetchEvents } = useICPEvents();
 
-  if (isLoading) {
+  useEffect(()=>{
+fetchEvents()
+  },[fetchEvents])
+
+  if (status === EventStatus.LOADING) {
     return (
       <div className="container py-8 flex items-center justify-center">
         <div className="text-center">
@@ -24,11 +28,11 @@ export default function EventsPage() {
     );
   }
 
-  if (error) {
+  if (errorMsg) {
     return (
       <div className="container py-8">
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400">
-          <p>Error loading events: {error.message}</p>
+          <p>Error loading events: {errorMsg}</p>
         </div>
       </div>
     );

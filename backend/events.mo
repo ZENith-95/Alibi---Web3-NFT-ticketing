@@ -221,6 +221,21 @@ actor Events {
     userTickets;
   };
   
+  public shared({caller}) func deleteEvent(eventId : Nat) : async Types.Result<Bool> {
+    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized);
+    
+    switch (events.get(eventId)) {
+      case (null) { return #err(#NotFound) };
+      case (?event) {
+        if (not Principal.equal(caller, event.organizer)) {
+          return #err(#NotAuthorized);
+        };
+        
+        ignore events.remove(eventId);
+        return #ok(true);
+      };
+    };
+  };
   // Verify a ticket (mark as used)
   public shared({ caller }) func verifyTicket(ticketId : Nat) : async Types.Result<Bool> {
     switch (tickets.get(ticketId)) {

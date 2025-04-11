@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEvents } from '@/hooks/use-events';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { useICPEvents } from '@/hooks/useEvents';
 
 export default function OrganizerDashboardPage() {
   const { isAuthenticated } = useAuth();
-  const { events } = useEvents();
+  const { events } = useICPEvents();
   const [stats, setStats] = useState({
     totalEvents: 0,
     upcomingEvents: 0,
@@ -104,7 +104,7 @@ export default function OrganizerDashboardPage() {
                 className="flex items-center justify-between p-4 border rounded-lg"
               >
                 <div>
-                  <h3 className="font-semibold">{event.title}</h3>
+                  <h3 className="font-semibold">{event.name}</h3>
                   <p className="text-sm text-muted-foreground">
                     {format(new Date(event.date), 'PPP')} at {event.time}
                   </p>

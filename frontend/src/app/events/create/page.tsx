@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { useEvents } from '@/hooks/use-events';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, Trash } from 'lucide-react';
 import { CreateEventRequest, TicketType } from '@/types/events';
+import { useICPEvents } from '@/hooks/useEvents';
 
 export default function CreateEventPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { createEvent } = useEvents();
+  const { createEvent } = useICPEvents();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,7 +26,6 @@ export default function CreateEventPage() {
     time: '',
     location: '',
     artStyle: 'modern',
-    imageUrl: null,
     ticketTypes: [],
   });
 
@@ -89,26 +88,19 @@ export default function CreateEventPage() {
         time: formattedTime,
         location: formData.location.trim(),
         artStyle: formData.artStyle,
-        imageUrl: [], // Empty array for null in Candid
         ticketTypes: formData.ticketTypes.map(tt => ({
           name: tt.name.trim(),
           price: tt.price,
           capacity: tt.capacity,
-          description: tt.description ? [tt.description.trim()] : [] // Array for optional text in Candid
+          description: tt.description ? tt.description.trim() : '' // Single string for optional text
         }))
       };
 
       console.log('Creating event with request:', eventRequest);
 
-      const result = await createEvent(eventRequest);
+      await createEvent(eventRequest);
       
-      if ('err' in result) {
-        const errorMessage = result.err.SystemError ? 'System error occurred' :
-                           result.err.NotAuthorized ? 'You are not authorized to create events' :
-                           result.err.InvalidEventData ? 'Invalid event data' :
-                           'Failed to create event';
-        throw new Error(errorMessage);
-      }
+   
 
       toast({
         title: "Success",

@@ -3,20 +3,23 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { useEvents } from '@/hooks/use-events';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
+import { useICPEvents } from '@/hooks/useEvents';
+type Params = {
+  id: string;
+};
 
 export default function EventPageClient() {
-  const { id } = useParams();
-  const { isAuthenticated } = useAuth();
-  const { events, attendEvent, leaveEvent } = useEvents();
+  const { id } = useParams() as Params;
+  const { isAuthenticated ,principal} = useAuth();
+  const { events,  } = useICPEvents();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const event = events?.find((e) => e.id === id);
+  const event = events?.find((e) => e.id === BigInt( id));
 
   if (!event) {
     return <div className="container py-8">Event not found</div>;
@@ -34,7 +37,7 @@ export default function EventPageClient() {
 
     setIsLoading(true);
     try {
-      await attendEvent(event.id);
+      // await attendEvent(event.id);
       toast({
         title: 'Success',
         description: 'You have successfully joined the event!',
@@ -53,7 +56,7 @@ export default function EventPageClient() {
   const handleLeave = async () => {
     setIsLoading(true);
     try {
-      await leaveEvent(event.id);
+      // await leaveEvent(event.id);
       toast({
         title: 'Success',
         description: 'You have left the event.',
@@ -69,13 +72,13 @@ export default function EventPageClient() {
     }
   };
 
-  const isAttending = event.attendees.includes(isAuthenticated?.principal || '');
+  const isAttending = event.attendees.includes(principal?.toString() || '');
 
   return (
     <div className="container py-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-4xl">{event.title}</CardTitle>
+          <CardTitle className="text-4xl">{event.name}</CardTitle>
           <CardDescription className="text-lg">
             {format(new Date(event.date), 'PPP')} at {event.time}
           </CardDescription>
@@ -95,7 +98,7 @@ export default function EventPageClient() {
             <div>
               <h3 className="text-xl font-semibold mb-2">Attendees</h3>
               <p className="text-muted-foreground">
-                {event.attendees.length} / {event.maxAttendees} spots filled
+                {event.attendees.length} / {0} spots filled
               </p>
             </div>
 
@@ -111,7 +114,7 @@ export default function EventPageClient() {
               ) : (
                 <Button
                   onClick={handleAttend}
-                  disabled={isLoading || event.attendees.length >= event.maxAttendees}
+                  disabled={isLoading || event.attendees.length >= 0}
                 >
                   Attend Event
                 </Button>

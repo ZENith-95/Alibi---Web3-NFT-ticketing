@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
+import { useICPEvents } from '@/hooks/useEvents';
 
 export default function OrganizerEventsPage() {
   const { isAuthenticated } = useAuth();
-  const { events, deleteEvent } = useEvents();
+  const { events, deleteEvent } = useICPEvents();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -64,7 +65,7 @@ export default function OrganizerEventsPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle>{event.title}</CardTitle>
+                  <CardTitle>{event.name}</CardTitle>
                   <CardDescription>
                     {format(new Date(event.date), 'PPP')} at {event.time}
                   </CardDescription>

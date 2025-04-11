@@ -12,17 +12,18 @@ export interface CreateEventRequest {
   time: string;
   location: string;
   artStyle: string;
-  imageUrl: string | null;
+  imageUrl?: string;
   ticketTypes: TicketType[];
 }
 
-export interface Event extends CreateEventRequest {
+export interface EventType extends CreateEventRequest {
   id: bigint;
   organizer: string;
   totalCapacity: bigint;
   ticketsSold: bigint;
   isActive: boolean;
   createdAt: bigint;
+  attendees: string[];
 }
 
 export interface EventResponse {
