@@ -26,10 +26,6 @@
     // Add or override any rules here
   },
   "settings": {
-    "import/resolver": {
-      "node": {
-        "extensions": [".js", ".jsx", ".ts", ".tsx"]
-      }
-    }
+    // Removing the deprecated import/resolver extensions setting
   }
 }
