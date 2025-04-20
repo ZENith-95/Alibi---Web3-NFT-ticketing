@@ -1,4 +1,5 @@
 import { Principal } from "@dfinity/principal"
+import { Identity } from "@dfinity/agent"
 
 // Types
 export interface Event {
@@ -291,6 +292,16 @@ export class IcApi {
     this.tickets.push(ticket);
 
     return { ok: ticketId };
+  }
+
+  async updateIdentity(identity: any): Promise<void> {
+    // In a real implementation, this would update the HttpAgent with the provided identity
+    // For the mock implementation, we'll just log it
+    if (identity) {
+      console.log(`Updated to authenticated identity: ${identity.getPrincipal().toText()}`);
+    } else {
+      console.log("Updated to anonymous identity");
+    }
   }
 
   async getUserTickets(user: Principal): Promise<Ticket[]> {
