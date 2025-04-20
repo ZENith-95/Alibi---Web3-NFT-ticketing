@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { eventsCanister } from "../lib/utils";
+import { createEventsCanister } from "../lib/utils";
 import { CreateEventRequest, EventType } from "@/types/events";
 
 export enum EventStatus { LOADING, IDLE, COMPLETED, FAILED }
@@ -24,6 +24,7 @@ export const useICPEvents = create<EventsState>((set) => ({
     fetchEvents: async () => {
         set({ status: EventStatus.LOADING });
         try {
+            const eventsCanister = await createEventsCanister();
             const response = await eventsCanister.getAllEvents();
             console.log('response', response);
             if (response.length > 0) {
@@ -42,6 +43,7 @@ export const useICPEvents = create<EventsState>((set) => ({
     createEvent: async (event) => {
         set({ status: EventStatus.LOADING });
         try {
+            const eventsCanister = await createEventsCanister();
             const response = await eventsCanister.createEvent(event);
             if (response) {
                 set({ status: EventStatus.COMPLETED });
@@ -57,6 +59,7 @@ export const useICPEvents = create<EventsState>((set) => ({
     deleteEvent: async (id) => {
         set({ status: EventStatus.LOADING });
         try {
+            const eventsCanister = await createEventsCanister();
             await eventsCanister.deleteEvent(id);
             const response = await eventsCanister.getAllEvents();
             set({ status: EventStatus.COMPLETED, events: response });

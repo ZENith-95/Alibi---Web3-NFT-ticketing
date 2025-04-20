@@ -7,15 +7,22 @@ async function createAuthClient() {
     return authClient;
 }
 
-export const createAgent = () => {
-    const httpAgent = new HttpAgent({
-        host: process.env.NEXT_PUBLIC_IC_HOST || "http://localhost:4943",
-    })
-    httpAgent.fetchRootKey(); // ✅ Required for local development
+async function getAuthClient() {
+}
 
-    // if (process.env.NODE_ENV !== "production") {
-    //     httpAgent.fetchRootKey(); // ✅ Required for local development
-    // }
+export const createAgent = async () => {
+    const host = process.env.NEXT_PUBLIC_IC_HOST || "http://localhost:4943"
+    const httpAgent = new HttpAgent({
+        host: host,
+    })
+    if (host.includes("localhost") || host.includes("127.0.0.1")) {
+        try {
+            await httpAgent.fetchRootKey(); // Required for local development
+        } catch (error) {
+            console.error("Failed to fetch root key:", error);
+        }
+    }
+
     return httpAgent
 }
 

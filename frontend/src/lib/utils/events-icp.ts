@@ -17,7 +17,7 @@ type EventCanisterServices = {
     mintTicket: (request: any) => Promise<any>
     verifyTicket: (ticketId: bigint) => Promise<any>
 }
-export const eventsCanister = Actor.createActor<EventCanisterServices>(idlFactory, {
+export const createEventsCanister = async () => Actor.createActor<EventCanisterServices>(idlFactory, {
     canisterId: process.env.NEXT_PUBLIC_EVENTS_CANISTER_ID || "a4tbr-q4aaa-aaaaa-qaafq-cai",
-    agent: createAgent()
+    agent: await createAgent()
 });
