@@ -9,12 +9,14 @@ import { Progress } from "../ui/progress"
 import { Skeleton } from "../ui/skeleton"
 import { mockEvents } from "../../lib/mock-data"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { EventList } from "../organizer/event-list"
 import { EventAnalytics } from "../organizer/event-analytics"
 
 export function OrganizerDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [events, setEvents] = useState<any[]>([])
+  const router = useRouter()
 
   useEffect(() => {
     // Simulate API call to fetch events
@@ -37,15 +39,17 @@ export function OrganizerDashboard() {
   const percentageSold = totalCapacity > 0 ? Math.round((totalTicketsSold / totalCapacity) * 100) : 0
   const activeEvents = events.filter((event) => new Date(event.date) >= new Date()).length
 
+  const handleCreateEvent = () => {
+    router.push("/organizer/create")
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Organizer Dashboard</h1>
-        <Button asChild>
-          <Link href="/organizer/create">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </Link>
+        <Button onClick={handleCreateEvent}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Event
         </Button>
       </div>
 

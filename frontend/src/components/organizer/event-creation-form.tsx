@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { cn } from "../../lib/utils";
 import { toast } from "../ui/use-toast";
 import { useRouter } from "next/navigation";
+import { IcApi } from "../../lib/ic-api";
 
 export function EventCreationForm() {
   const router = useRouter();
@@ -25,6 +26,10 @@ export function EventCreationForm() {
   const [primaryColor, setPrimaryColor] = useState("#00FEFE");
   const [secondaryColor, setSecondaryColor] = useState("#FF00FF");
   const [artStyle, setArtStyle] = useState("cyberpunk");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const locationRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const timeRef = useRef<HTMLInputElement>(null);
 
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", capacity: "" }]);
@@ -55,19 +60,93 @@ export function EventCreationForm() {
     }, 2000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!date) {
+      toast({
+        title: "Error",
+        description: "Please select a date for the event",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const name = nameRef.current?.value;
+    const location = locationRef.current?.value;
+    const description = descriptionRef.current?.value;
+    const time = timeRef.current?.value || "12:00";
+    
+    if (!name || !location || !description) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Validate ticket types
+    const validTicketTypes = ticketTypes.filter(
+      tt => tt.name && tt.price && tt.capacity
+    );
+    
+    if (validTicketTypes.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one valid ticket type",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
-    // Simulate API call to create event
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const api = new IcApi();
+      
+      const eventRequest = {
+        name,
+        description,
+        date: format(date, "yyyy-MM-dd"),
+        time,
+        location,
+        imageUrl: null,
+        artStyle,
+        ticketTypes: validTicketTypes.map(tt => ({
+          name: tt.name,
+          price: BigInt(parseFloat(tt.price) * 100000000), // Convert to bigint
+          capacity: BigInt(parseInt(tt.capacity)),
+          description: null
+        }))
+      };
+      
+      const result = await api.createEvent(eventRequest);
+      
+      if ('ok' in result) {
+        toast({
+          title: "Event Created",
+          description: "Your event has been created successfully.",
+        });
+        // Use router.push for client-side navigation instead of window.location
+        router.push("/organizer");
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create event. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error creating event:", error);
       toast({
-        title: "Event Created",
-        description: "Your event has been created successfully.",
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
       });
-      router.push("/organizer");
-    }, 2000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -78,7 +157,7 @@ export function EventCreationForm() {
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Event Name</Label>
-                <Input id="name" placeholder="Enter event name" required />
+                <Input id="name" placeholder="Enter event name" ref={nameRef} required />
               </div>
             </div>
 
@@ -103,23 +182,34 @@ export function EventCreationForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="time">Event Time</Label>
-                <div className="flex">
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Clock className="mr-2 h-4 w-4" />
-                    <span className="text-muted-foreground">Select time</span>
-                  </Button>
-                </div>
+                <Input type="time" id="time" ref={timeRef} />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="location">Event Location</Label>
-              <Input id="location" placeholder="Enter event location" required />
+              <Input id="location" placeholder="Enter event location" ref={locationRef} required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Event Description</Label>
-              <Textarea id="description" placeholder="Describe your event..." className="min-h-32" required />
+              <Textarea id="description" placeholder="Describe your event..." ref={descriptionRef} className="min-h-32" required />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="artStyle">Ticket Art Style</Label>
+              <Select value={artStyle} onValueChange={setArtStyle}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                  <SelectItem value="futuristic">Futuristic</SelectItem>
+                  <SelectItem value="retro">Retro</SelectItem>
+                  <SelectItem value="abstract">Abstract</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

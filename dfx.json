@@ -10,6 +10,14 @@
         "output": "frontend/src/declarations/profile"
       }
     },
+    "events": {
+      "type": "motoko",
+      "main": "backend/events.mo",
+      "declarations": {
+        "node_compatibility": true,
+        "output": "frontend/src/declarations/events"
+      }
+    },
     "ticket": {
       "type": "motoko",
       "main": "backend/ticket.mo",
@@ -19,12 +27,21 @@
       }
     },
     "frontend": {
-      "dependencies": ["profile", "ticket"],
+      "dependencies": ["profile", "events", "ticket"],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
       "source": ["frontend/build"],
-      "type": "assets"
+      "type": "assets",
+      "declarations": {
+        "output": "frontend/src/declarations/frontend"
+      },
+      "aliases": {
+        "spa": {
+          "entrypoint": "frontend/build/index.html",
+          "source_paths": ["/"]
+        }
+      }
     },
     "internet-identity": {
       "type": "custom",

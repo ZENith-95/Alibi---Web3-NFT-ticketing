@@ -1,14 +1,21 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "./ui/button"
 import { Ticket } from "lucide-react"
 import { ConnectWalletButton } from "./connect-wallet-button"
 
 export function SiteHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const isOrganizer = pathname?.startsWith("/organizer") || false
+
+  const handleCreateEvent = (e: React.MouseEvent) => {
+    e.preventDefault()
+    // Use router.push for client-side navigation
+    router.push("/organizer/create")
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,8 +64,12 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           <ConnectWalletButton />
           {isOrganizer && (
-            <Button asChild variant="default" className="hidden md:inline-flex">
-              <Link href="/organizer/create">Create Event</Link>
+            <Button 
+              variant="default" 
+              className="hidden md:inline-flex"
+              onClick={handleCreateEvent}
+            >
+              Create Event
             </Button>
           )}
         </div>
