@@ -2,21 +2,49 @@
   "version": 1,
   "dfx": "0.20.1",
   "canisters": {
-    "test": {
+    "profile": {
       "type": "motoko",
-      "main": "backend/test/main.mo",
+      "main": "backend/profile/main.mo",
       "declarations": {
         "node_compatibility": true,
-        "output": "frontend/src/declarations/test"
+        "output": "frontend/src/declarations/profile"
+      }
+    },
+    "events": {
+      "type": "motoko",
+      "main": "backend/events/main.mo",
+      "declarations": {
+        "node_compatibility": true,
+        "output": "frontend/src/declarations/events"
+      }
+    },
+    "ticket": {
+      "type": "motoko",
+      "main": "backend/ticket/main.mo",
+      "declarations": {
+        "node_compatibility": true,
+        "output": "frontend/src/declarations/ticket"
       }
     },
     "frontend": {
-      "dependencies": ["test"],
+      "dependencies": ["profile", "events", "ticket"],
       "frontend": {
         "entrypoint": "frontend/build/index.html"
       },
       "source": ["frontend/build"],
-      "type": "assets"
+      "type": "assets",
+      "declarations": {
+        "node_compatibility": true,
+        "output": "frontend/src/declarations/frontend"
+      },
+      "gzip": true,
+      "build": ["npm --prefix frontend run build"],
+      "aliases": {
+        "spa": {
+          "entrypoint": "frontend/build/index.html",
+          "source_paths": ["/"]
+        }
+      }
     },
     "internet-identity": {
       "type": "custom",

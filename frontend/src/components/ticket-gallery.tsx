@@ -5,10 +5,51 @@ import { TicketCard } from "./ticket-card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs"
 import { Skeleton } from "./ui/skeleton"
 import { useWallet } from "./wallet-provider"
-import { mockTickets } from "../lib/mock-data"
 import { Button } from "./ui/button"
 import { Ticket } from "lucide-react"
 import Link from "next/link"
+import { icApi } from "../lib/ic-api"
+
+// Map backend ticket to frontend ticket display format
+const mapTicketToDisplay = (ticket: any) => {
+  // Find the 'event' attribute from metadata
+  const eventName = ticket.metadata.attributes.find(
+    (attr: [string, string]) => attr[0] === "event"
+  )?.[1] || ticket.metadata.name;
+  
+  // Find the date and time attributes
+  const eventDate = ticket.metadata.attributes.find(
+    (attr: [string, string]) => attr[0] === "date"
+  )?.[1] || "";
+  
+  const eventTime = ticket.metadata.attributes.find(
+    (attr: [string, string]) => attr[0] === "time"
+  )?.[1] || "";
+  
+  const eventLocation = ticket.metadata.attributes.find(
+    (attr: [string, string]) => attr[0] === "location"
+  )?.[1] || "";
+
+  const qrHash = ticket.metadata.attributes.find(
+    (attr: [string, string]) => attr[0] === "qrHash"
+  )?.[1] || "";
+  
+  return {
+    id: ticket.id.toString(),
+    eventId: ticket.eventId.toString(),
+    eventName,
+    eventDate,
+    eventTime,
+    eventLocation,
+    imageUrl: ticket.metadata.imageUrl || "/placeholder.svg?height=300&width=200&text=" + encodeURIComponent(eventName),
+    status: ticket.isUsed ? "used" : "active",
+    qrHash,
+    unlockables: {
+      total: 3,
+      unlocked: ticket.isUsed ? 3 : 1,
+    },
+  };
+};
 
 export function TicketGallery() {
   const [tickets, setTickets] = useState<any[]>([])
@@ -16,15 +57,24 @@ export function TicketGallery() {
   const { isConnected } = useWallet()
 
   useEffect(() => {
-    // Simulate API call to fetch tickets
+    // Fetch tickets from the canister
     const fetchTickets = async () => {
       setIsLoading(true)
-      // In a real implementation, we would fetch from the canister
-      // For now, we'll just use mock data with a delay to simulate loading
-      setTimeout(() => {
-        setTickets(isConnected ? mockTickets : [])
-        setIsLoading(false)
-      }, 1500)
+      
+      if (isConnected) {
+        try {
+          const backendTickets = await icApi.getUserTickets();
+          const formattedTickets = backendTickets.map(mapTicketToDisplay);
+          setTickets(formattedTickets);
+        } catch (error) {
+          console.error("Error fetching tickets:", error);
+          setTickets([]);
+        }
+      } else {
+        setTickets([]);
+      }
+      
+      setIsLoading(false);
     }
 
     fetchTickets()

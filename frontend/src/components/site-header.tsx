@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "./ui/button"
 import { Ticket } from "lucide-react"
-import { ConnectWalletButton } from "./connect-wallet-button"
+import { AuthButton } from "./auth-button"
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -55,7 +55,7 @@ export function SiteHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <ConnectWalletButton />
+          <AuthButton />
           {isOrganizer && (
             <Button asChild variant="default" className="hidden md:inline-flex">
               <Link href="/organizer/create">Create Event</Link>

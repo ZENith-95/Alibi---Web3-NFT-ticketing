@@ -8,15 +8,24 @@ import {
   TicketService,
   ProfileService
 } from "../declarations/index"
-// Import proper Candid types from the declarations
-import type { 
-  CreateEventRequest as CandidCreateEventRequest,
-  _SERVICE as EventsServiceType
-} from "../declarations/events/events.did"
-import type {
-  MintTicketRequest as CandidMintTicketRequest,
-  _SERVICE as TicketServiceType
-} from "../declarations/ticket/ticket.did"
+
+// We'll import these declarations when we generate them properly
+// For now, we'll stub them until we can generate the proper declarations
+type EventsService = any;
+type TicketService = any;
+type ProfileService = any;
+
+const eventsIdlFactory = {
+  service: {}
+};
+
+const ticketIdlFactory = {
+  service: {}
+};
+
+const profileIdlFactory = {
+  service: {}
+};
 
 // Types
 export interface Event {
@@ -295,20 +304,7 @@ export class IcApi {
     }
 
     try {
-      // Use the anonymous principal if the agent is not available
-      let principal = Principal.anonymous();
-      
-      // Get the current principal from the agent if available
-      if (this.agent) {
-        try {
-          principal = await this.agent.getPrincipal();
-        } catch (error) {
-          console.error("Error getting principal:", error);
-        }
-      }
-      
-      // Pass the principal as required by the canister interface
-      const response = await this.eventsActor.getOrganizerEvents(principal)
+      const response = await this.eventsActor.getOrganizerEvents()
       if ("ok" in response) {
         const events = response.ok as any[]
         return events.map((event) => this.mapEventToFrontend(event))
@@ -329,21 +325,19 @@ export class IcApi {
     }
 
     try {
-      // Convert request to backend format explicitly using the CandidCreateEventRequest type
-      const backendRequest: CandidCreateEventRequest = {
-      name: request.name,
-      description: request.description,
-      date: request.date,
-      time: request.time,
-      location: request.location,
-        // For optional values, use [] (empty array) or [value] (array with one element)
+      // Convert request to backend format
+      const backendRequest = {
+        name: request.name,
+        description: request.description,
+        date: request.date,
+        time: request.time,
+        location: request.location,
         imageUrl: request.imageUrl ? [request.imageUrl] : [],
-      artStyle: request.artStyle,
+        artStyle: request.artStyle,
         ticketTypes: request.ticketTypes.map((tt) => ({
           name: tt.name,
-          price: BigInt(tt.price),
-          capacity: BigInt(tt.capacity),
-          // For optional values, use [] (empty array) or [value] (array with one element)
+          price: Number(tt.price),
+          capacity: Number(tt.capacity),
           description: tt.description ? [tt.description] : [],
         })),
       }
@@ -372,18 +366,18 @@ export class IcApi {
   }
 
   async mintTicket(request: MintTicketRequest): Promise<Result<bigint, Error>> {
-    if (!this.ticketActor) {
-      console.error("Ticket actor not initialized")
+    if (!this.eventsActor) {
+      console.error("Events actor not initialized")
       return { err: { SystemError: null } }
     }
 
     try {
-      const backendRequest: CandidMintTicketRequest = {
+      const backendRequest = {
         eventId: request.eventId.toString(),
         ticketTypeId: request.ticketTypeId.toString(),
       }
 
-      const response = await this.ticketActor.mintTicket(backendRequest)
+      const response = await this.eventsActor.mintTicket(backendRequest)
 
       if ("ok" in response) {
         const ticket = response.ok as any
@@ -394,7 +388,9 @@ export class IcApi {
         const err = response.err as any
         if ("userNotAuthenticated" in err) {
           return { err: { NotAuthorized: null } }
-        } else if ("notFound" in err) {
+        } else if ("eventNotFound" in err) {
+          return { err: { NotFound: null } }
+        } else if ("ticketTypeNotFound" in err) {
           return { err: { NotFound: null } }
         } else if ("soldOut" in err) {
           return { err: { SoldOut: null } }
@@ -411,19 +407,14 @@ export class IcApi {
   }
 
   async getUserTickets(): Promise<Ticket[]> {
-    if (!this.ticketActor) {
-      console.error("Ticket actor not initialized")
+    if (!this.eventsActor) {
+      console.error("Events actor not initialized")
       return []
     }
 
     try {
-      const response = await this.ticketActor.getUserTickets()
-      if ("ok" in response) {
-        return response.ok.map((ticket: any) => this.mapTicketToFrontend(ticket))
-      } else {
-        console.error("Error getting user tickets:", response)
-        return []
-      }
+      const tickets = await this.eventsActor.getUserTickets()
+      return tickets.map((ticket: any) => this.mapTicketToFrontend(ticket))
     } catch (error) {
       console.error("Error calling getUserTickets:", error)
       return []
@@ -452,8 +443,8 @@ export class IcApi {
     }
 
     try {
-      // Pass ticketId as a string directly
-      const response = await this.ticketActor.verifyTicket(ticketId.toString())
+      const request = { ticketId: ticketId.toString() }
+      const response = await this.ticketActor.verifyTicket(request)
 
       if ("ok" in response) {
         return { ok: response.ok }
@@ -464,7 +455,11 @@ export class IcApi {
         if ("userNotAuthenticated" in err) {
           return { err: { NotAuthorized: null } }
         } else if ("ticketNotFound" in err) {
-      return { err: { NotFound: null } }
+          return { err: { NotFound: null } }
+        } else if ("eventNotFound" in err) {
+          return { err: { NotFound: null } }
+        } else if ("eventNotActive" in err) {
+          return { err: { CannotModify: null } }
         } else {
           return { err: { SystemError: null } }
         }
@@ -534,21 +529,70 @@ export class IcApi {
     }
   }
 
-  // These methods are not currently supported by the backend API.
-  // For future implementation, they will need to match the backend API.
-  
+  // Transfer a ticket to another user
   async transferTicket(ticketId: bigint, newOwner: Principal): Promise<Result<boolean, Error>> {
-    // This functionality is not available in the current backend
-    console.error("TransferTicket method is not implemented in the backend")
-    return { err: { SystemError: null } }
+    if (!this.ticketActor) {
+      console.error("Ticket actor not initialized")
+      return { err: { SystemError: null } }
+    }
+
+    try {
+      const response = await this.ticketActor.transferTicket(
+        ticketId.toString(),
+        newOwner
+      )
+
+      if ("ok" in response) {
+        return { ok: response.ok }
+      } else {
+        console.error("Error transferring ticket:", response)
+        // Map backend error to frontend error
+        const err = response.err as any
+        if ("userNotAuthenticated" in err) {
+          return { err: { NotAuthorized: null } }
+        } else if ("ticketNotFound" in err) {
+          return { err: { NotFound: null } }
+        } else {
+          return { err: { SystemError: null } }
+        }
+      }
+    } catch (error) {
+      console.error("Error calling transferTicket:", error)
+      return { err: { SystemError: null } }
+    }
   }
 
+  // Cancel an event
   async cancelEvent(eventId: bigint): Promise<Result<boolean, Error>> {
-    // This functionality is not available in the current backend
-    console.error("CancelEvent method is not implemented in the backend")
-    return { err: { SystemError: null } }
+    if (!this.eventsActor) {
+      console.error("Events actor not initialized")
+      return { err: { SystemError: null } }
+    }
+
+    try {
+      const response = await this.eventsActor.cancelEvent(eventId.toString())
+
+      if ("ok" in response) {
+        return { ok: response.ok }
+      } else {
+        console.error("Error cancelling event:", response)
+        // Map backend error to frontend error
+        const err = response.err as any
+        if ("userNotAuthenticated" in err) {
+          return { err: { NotAuthorized: null } }
+        } else if ("invalidInput" in err) {
+          return { err: { NotFound: null } }
+        } else {
+          return { err: { SystemError: null } }
+        }
+      }
+    } catch (error) {
+      console.error("Error calling cancelEvent:", error)
+      return { err: { SystemError: null } }
+    }
   }
 }
 
 // Export a singleton instance for convenience
 export const icApi = new IcApi()
+

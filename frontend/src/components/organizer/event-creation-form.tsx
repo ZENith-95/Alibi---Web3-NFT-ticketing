@@ -1,19 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { CalendarIcon, Clock, Plus, Trash, Image, Loader2 } from "lucide-react";
-import { Calendar } from "../ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Plus, Trash, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "../../lib/utils";
 import { toast } from "../ui/use-toast";
 import { useRouter } from "next/navigation";
+import { CreateEventRequest, icApi } from "../../lib/ic-api";
 
 export function EventCreationForm() {
   const router = useRouter();
@@ -25,6 +23,18 @@ export function EventCreationForm() {
   const [primaryColor, setPrimaryColor] = useState("#00FEFE");
   const [secondaryColor, setSecondaryColor] = useState("#FF00FF");
   const [artStyle, setArtStyle] = useState("cyberpunk");
+  const [eventName, setEventName] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+  const [eventTime, setEventTime] = useState("");
+
+  useEffect(() => {
+    // Debug effect to log when the date changes
+    if (date) {
+      console.log("Date state updated:", date);
+      console.log("Formatted date:", format(date, "yyyy-MM-dd"));
+    }
+  }, [date]);
 
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", capacity: "" }]);
@@ -55,19 +65,89 @@ export function EventCreationForm() {
     }, 2000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call to create event
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      if (!date) {
+        toast({
+          title: "Error",
+          description: "Please select a date for your event.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (ticketTypes.some(ticket => !ticket.name || !ticket.price || !ticket.capacity)) {
+        toast({
+          title: "Error",
+          description: "Please fill out all ticket type fields.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Format date as YYYY-MM-DD
+      const formattedDate = format(date, "yyyy-MM-dd");
+      console.log("Formatted date:", formattedDate);
+
+      // Create the request object
+      const request: CreateEventRequest = {
+        name: eventName,
+        description: eventDescription,
+        date: formattedDate,
+        time: eventTime || "12:00",
+        location: eventLocation,
+        imageUrl: null, // No image for now
+        artStyle: artStyle,
+        ticketTypes: ticketTypes.map(tt => ({
+          name: tt.name,
+          price: BigInt(parseFloat(tt.price || "0") * 100000000), // Convert to e8s (ICP smallest unit)
+          capacity: BigInt(parseInt(tt.capacity || "0")),
+          description: null,
+        })),
+      };
+
+      console.log("Creating event with data:", request);
+
+      // Call the API to create the event
+      const result = await icApi.createEvent(request);
+
+      if ("ok" in result) {
+        toast({
+          title: "Event Created",
+          description: "Your event has been created successfully with ID: " + result.ok.toString(),
+        });
+        router.push("/organizer");
+      } else {
+        let errorMessage = "Unknown error";
+        if ("NotAuthorized" in result.err) {
+          errorMessage = "You are not authorized to create events.";
+        } else if ("InvalidInput" in result.err) {
+          errorMessage = "Invalid input data. Please check your form.";
+        } else if ("SystemError" in result.err) {
+          errorMessage = "System error. Please try again later.";
+        }
+        
+        toast({
+          title: "Error Creating Event",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error creating event:", error);
       toast({
-        title: "Event Created",
-        description: "Your event has been created successfully.",
+        title: "Error",
+        description: "Failed to create event. Please try again.",
+        variant: "destructive",
       });
-      router.push("/organizer");
-    }, 2000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -78,48 +158,86 @@ export function EventCreationForm() {
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Event Name</Label>
-                <Input id="name" placeholder="Enter event name" required />
+                <Input 
+                  id="name" 
+                  placeholder="Enter event name" 
+                  required 
+                  value={eventName}
+                  onChange={(e) => setEventName(e.target.value)}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Event Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP") : "Select date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                  </PopoverContent>
-                </Popover>
+                <Label htmlFor="date">Event Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date ? format(date, "yyyy-MM-dd") : ""}
+                  onChange={(e) => {
+                    const selectedDate = e.target.valueAsDate;
+                    if (selectedDate) {
+                      console.log("Date selected:", selectedDate);
+                      setDate(selectedDate);
+                    }
+                  }}
+                  min={format(new Date(), "yyyy-MM-dd")}
+                  required
+                  className="w-full"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="time">Event Time</Label>
-                <div className="flex">
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Clock className="mr-2 h-4 w-4" />
-                    <span className="text-muted-foreground">Select time</span>
-                  </Button>
-                </div>
+                <Input 
+                  id="time"
+                  type="time"
+                  placeholder="e.g. 19:00" 
+                  value={eventTime}
+                  onChange={(e) => setEventTime(e.target.value)}
+                  required
+                  className="w-full"
+                />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="location">Event Location</Label>
-              <Input id="location" placeholder="Enter event location" required />
+              <Input 
+                id="location" 
+                placeholder="Enter event location" 
+                required 
+                value={eventLocation}
+                onChange={(e) => setEventLocation(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="artStyle">Art Style</Label>
+              <Select value={artStyle} onValueChange={setArtStyle}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select art style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cyberpunk">Cyberpunk</SelectItem>
+                  <SelectItem value="minimal">Minimal</SelectItem>
+                  <SelectItem value="abstract">Abstract</SelectItem>
+                  <SelectItem value="futuristic">Futuristic</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Event Description</Label>
-              <Textarea id="description" placeholder="Describe your event..." className="min-h-32" required />
+              <Textarea 
+                id="description" 
+                placeholder="Describe your event..." 
+                className="min-h-32" 
+                required 
+                value={eventDescription}
+                onChange={(e) => setEventDescription(e.target.value)}
+              />
             </div>
           </div>
         </CardContent>
@@ -178,8 +296,12 @@ export function EventCreationForm() {
               </div>
             ))}
 
-            <button type="button" onClick={addTicketType} className="w-full border border-gray-300 rounded-md p-2 text-center">
-              <Plus className="mr-2 h-4 w-4" />
+            <button 
+              type="button" 
+              onClick={addTicketType} 
+              className="w-full border border-gray-300 rounded-md p-2 text-center"
+            >
+              <Plus className="mr-2 h-4 w-4 inline" />
               Add Ticket Type
             </button>
           </div>
@@ -187,10 +309,10 @@ export function EventCreationForm() {
       </Card>
 
       <div className="flex justify-end gap-4">
-        <Button variant="outline">
-          Save as Draft
+        <Button variant="outline" type="button" onClick={() => router.push("/organizer")}>
+          Cancel
         </Button>
-        <Button aria-disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

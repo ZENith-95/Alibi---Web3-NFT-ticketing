@@ -46,16 +46,19 @@ export function TicketMintingDialog({
       setIsProcessing(true)
       setStep("generating")
 
-      // Simulate AI generation of ticket designs
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // In a real implementation, this would use AI to generate ticket designs
+      // For now, we'll generate placeholder images based on event name and style
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Mock generated ticket SVGs
-      const mockTickets = [
-        "/placeholder.svg?height=300&width=200&text=Ticket+Design+1",
-        "/placeholder.svg?height=300&width=200&text=Ticket+Design+2",
-        "/placeholder.svg?height=300&width=200&text=Ticket+Design+3",
-      ]
-      setGeneratedTickets(mockTickets)
+      // Generate ticket designs based on selected style
+      const basePath = `/placeholder.svg?height=300&width=200&text=${encodeURIComponent(event.name)}`;
+      const tickets = [
+        `${basePath}+${encodeURIComponent(selectedStyle)}+1`,
+        `${basePath}+${encodeURIComponent(selectedStyle)}+2`,
+        `${basePath}+${encodeURIComponent(selectedStyle)}+3`,
+      ];
+      
+      setGeneratedTickets(tickets)
       setSelectedTicket(0) // Select the first ticket by default
       setStep("minting")
     } catch (error) {
@@ -69,7 +72,7 @@ export function TicketMintingDialog({
     } finally {
       setIsProcessing(false)
     }
-  }, [])
+  }, [event.name, selectedStyle])
 
   const handleMintTicket = useCallback(async () => {
     if (selectedTicket === null) {
@@ -254,32 +257,20 @@ export function TicketMintingDialog({
 
           {step === "style" && (
             <Button onClick={handleGenerateTickets} type="button" disabled={isProcessing}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Tickets"
-              )}
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate Tickets
             </Button>
           )}
 
           {step === "minting" && (
             <Button onClick={handleMintTicket} type="button" disabled={isProcessing || selectedTicket === null}>
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Minting...
-                </>
-              ) : (
-                "Mint Selected Ticket"
-              )}
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Mint Ticket
             </Button>
           )}
 
           {step === "success" && (
-            <Button onClick={handleClose} className="w-full" type="button">
+            <Button onClick={handleClose} type="button">
               View My Tickets
             </Button>
           )}

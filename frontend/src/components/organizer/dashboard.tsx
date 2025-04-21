@@ -7,25 +7,55 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs"
 import { Calendar, Plus, Ticket, Users, TrendingUp, QrCode } from "lucide-react"
 import { Progress } from "../ui/progress"
 import { Skeleton } from "../ui/skeleton"
-import { mockEvents } from "../../lib/mock-data"
 import Link from "next/link"
 import { EventList } from "../organizer/event-list"
 import { EventAnalytics } from "../organizer/event-analytics"
+import { icApi } from "../../lib/ic-api"
+
+// Map backend event to frontend event display format
+const mapEventToDisplay = (event: any) => {
+  const totalCapacity = event.ticketTypes.reduce(
+    (sum: number, tt: any) => sum + Number(tt.capacity), 
+    0
+  );
+  
+  const ticketsSold = event.ticketTypes.reduce(
+    (sum: number, tt: any) => sum + Number(tt.sold), 
+    0
+  );
+  
+  return {
+    id: event.id.toString(),
+    name: event.name,
+    date: event.date,
+    time: event.time,
+    location: event.location,
+    capacity: totalCapacity,
+    ticketsSold: ticketsSold,
+    imageUrl: event.imageUrl || `/placeholder.svg?height=400&width=800&text=${encodeURIComponent(event.name)}`,
+    artStyle: event.artStyle,
+  };
+};
 
 export function OrganizerDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [events, setEvents] = useState<any[]>([])
 
   useEffect(() => {
-    // Simulate API call to fetch events
+    // Fetch events from the canister
     const fetchEvents = async () => {
       setIsLoading(true)
-      // In a real implementation, we would fetch from the canister
-      // For now, we'll just use mock data with a delay to simulate loading
-      setTimeout(() => {
-        setEvents(mockEvents)
-        setIsLoading(false)
-      }, 1500)
+      
+      try {
+        const backendEvents = await icApi.getOrganizerEvents();
+        const formattedEvents = backendEvents.map(mapEventToDisplay);
+        setEvents(formattedEvents);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+        setEvents([]);
+      }
+      
+      setIsLoading(false);
     }
 
     fetchEvents()
@@ -111,7 +141,7 @@ export function OrganizerDashboard() {
                 </div>
                 <div className="flex items-center mt-2 text-sm text-muted-foreground">
                   <QrCode className="h-4 w-4 mr-1" />
-                  <span>324 checked in</span>
+                  <span>0 checked in</span>
                 </div>
               </CardContent>
             </Card>
