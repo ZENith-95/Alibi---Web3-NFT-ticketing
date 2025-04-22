@@ -93,17 +93,35 @@ export function EventDetails({ eventId }: EventDetailsProps) {
     if (!event || !selectedTicketType) return null
 
     try {
-      const request: MintTicketRequest = {
+      console.log("Starting mint with:", {
         eventId: event.id,
-        ticketTypeId: selectedTicketType,
-      }
-
-      const result = await icApi.mintTicket(request)
+        ticketTypeId: selectedTicketType
+      });
+      
+      const result = await icApi.mintTicket({
+        eventId: event.id,
+        ticketTypeId: selectedTicketType
+      });
 
       if ("ok" in result) {
+        console.log("Minting successful:", result.ok);
         return result.ok
       } else {
-        throw new Error("Failed to mint ticket")
+        // Map error to a more descriptive message
+        let errorMessage = "Failed to mint ticket";
+        if ("NotAuthorized" in result.err) {
+          errorMessage = "You are not authorized to mint tickets. Please log in.";
+        } else if ("NotFound" in result.err) {
+          errorMessage = "Event or ticket type not found.";
+        } else if ("SoldOut" in result.err) {
+          errorMessage = "This ticket type is sold out.";
+        } else if ("CannotModify" in result.err) {
+          errorMessage = "Event is not active.";
+        } else if ("SystemError" in result.err) {
+          errorMessage = "A system error occurred. Please try again later.";
+        }
+        console.error("Mint error response:", result.err);
+        throw new Error(errorMessage)
       }
     } catch (error) {
       console.error("Error minting ticket:", error)

@@ -106,7 +106,10 @@ export class IcApi {
 
   private initializeActors() {
     // Create an anonymous agent
-    this.agent = new HttpAgent({ host: this.host })
+    this.agent = new HttpAgent({ 
+      host: this.host,
+      fetchOptions: { timeout: 30000 } 
+    });
 
     // For local development, we need to fetch the root key
     if (this.host.includes("localhost") || this.host.includes("127.0.0.1")) {
@@ -162,6 +165,8 @@ export class IcApi {
   }
 
   async updateIdentity(identity: any): Promise<void> {
+    console.log("Updating identity", identity ? "with authenticated identity" : "to anonymous");
+    
     if (!identity) {
       // Reinitialize with anonymous identity
       this.initializeActors()
@@ -170,7 +175,11 @@ export class IcApi {
 
     try {
       // Create a new agent with the authenticated identity
-      this.agent = new HttpAgent({ host: this.host, identity })
+      this.agent = new HttpAgent({ 
+        host: this.host, 
+        identity,
+        fetchOptions: { timeout: 30000 }
+      });
 
       // For local development, we need to fetch the root key
       if (this.host.includes("localhost") || this.host.includes("127.0.0.1")) {
@@ -178,6 +187,10 @@ export class IcApi {
           console.warn("Unable to fetch root key:", err)
         })
       }
+
+      // Log the principal to verify authentication
+      const principal = await this.agent.getPrincipal();
+      console.log("Authenticated with principal:", principal.toString());
 
       // Recreate the actors with the authenticated identity
       this.createActors()
@@ -371,6 +384,7 @@ export class IcApi {
     }
   }
 
+  // Map result types to our frontend result type
   async mintTicket(request: MintTicketRequest): Promise<Result<bigint, Error>> {
     if (!this.ticketActor) {
       console.error("Ticket actor not initialized")
@@ -378,35 +392,79 @@ export class IcApi {
     }
 
     try {
-      const backendRequest: CandidMintTicketRequest = {
-        eventId: request.eventId.toString(),
-        ticketTypeId: request.ticketTypeId.toString(),
-      }
-
-      const response = await this.ticketActor.mintTicket(backendRequest)
-
-      if ("ok" in response) {
-        const ticket = response.ok as any
-        return { ok: BigInt(ticket.id) }
-      } else {
-        console.error("Error minting ticket:", response)
-        // Map backend error to frontend error
-        const err = response.err as any
-        if ("userNotAuthenticated" in err) {
-          return { err: { NotAuthorized: null } }
-        } else if ("notFound" in err) {
-          return { err: { NotFound: null } }
-        } else if ("soldOut" in err) {
-          return { err: { SoldOut: null } }
-        } else if ("eventNotActive" in err) {
-          return { err: { CannotModify: null } }
-        } else {
-          return { err: { SystemError: null } }
+      // Extract the eventId and ticketTypeId as strings
+      const eventIdStr = request.eventId.toString();
+      const ticketTypeIdStr = request.ticketTypeId.toString();
+      
+      // Get the user's principal
+      let userPrincipal;
+      if (this.agent) {
+        try {
+          userPrincipal = await this.agent.getPrincipal();
+        } catch (err) {
+          console.error("Error getting user principal:", err);
+          return { err: { NotAuthorized: null } };
         }
+      } else {
+      return { err: { NotAuthorized: null } };
+    }
+
+      // Create metadata for the ticket
+      const metadata = {
+        name: `Ticket for Event #${eventIdStr}`,
+        description: `NFT Ticket for event ${eventIdStr}, ticket type ${ticketTypeIdStr}`,
+        imageUrl: [] as any[], // Empty opt value
+        attributes: [] as [string, string][] // Empty vec
+      };
+
+      console.log("Calling mintTicket with correct parameters:", {
+        eventId: eventIdStr,
+        ticketTypeId: ticketTypeIdStr,
+        principal: userPrincipal.toString(),
+        metadata
+      });
+
+      try {
+        // Use any to bypass type checking since the generated types don't match actual API
+        const mintTicketFn = (this.ticketActor as any).mintTicket;
+        
+        if (!mintTicketFn) {
+          console.error("mintTicket function not found on the actor");
+          return { err: { SystemError: null } };
+        }
+        
+        // Call with the exact parameters the backend expects
+        const response = await mintTicketFn(
+          eventIdStr,
+          ticketTypeIdStr,
+          userPrincipal,
+          metadata
+        );
+
+        if (response && typeof response === 'object') {
+          if ('ok' in response && response.ok) {
+            const ticketId = String(response.ok);
+            console.log("Ticket minted successfully, ID:", ticketId);
+            return { ok: BigInt(ticketId) };
+          } else if ('err' in response && response.err) {
+            console.error("Error minting ticket:", response);
+            const err = response.err;
+            
+            if (err.userNotAuthenticated) {
+              return { err: { NotAuthorized: null } };
+            }
+          }
+        }
+        
+        console.error("Unknown response format:", response);
+        return { err: { SystemError: null } };
+      } catch (callError) {
+        console.error("Error in ticket actor call:", callError);
+        return { err: { SystemError: null } };
       }
     } catch (error) {
-      console.error("Error calling mintTicket:", error)
-      return { err: { SystemError: null } }
+      console.error("Error calling mintTicket:", error);
+      return { err: { SystemError: null } };
     }
   }
 
