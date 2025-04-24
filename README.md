@@ -1,118 +1,59 @@
-Alibi - "Not Proof of Absence!"
+# `alibi`
 
-A robust, user-centric MVP on ICP that demonstrates AI-generated NFT ticketing, QR-based entry, and post-event utility, prioritizing cost efficiency, scalability, and seamless integration between frontend and Motoko backend.
+Welcome to your new `alibi` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
 
-Core Features
-AI-Generated NFT Tickets
+To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
 
-Dynamic Art: Uses free-tier Stable Diffusion/DALL-E APIs to create unique SVG-based ticket designs.
+To learn more before you start working with `alibi`, see the following documentation available online:
 
-Traits System: Randomized traits (e.g., "VIP," "Golden Border") stored in NFT metadata.
+- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
+- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
+- [Motoko Programming Language Guide](https://internetcomputer.org/docs/current/motoko/main/motoko)
+- [Motoko Language Quick Reference](https://internetcomputer.org/docs/current/motoko/main/language-manual)
 
-On-Chain Storage: Embed SVG artwork and QR codes directly into Motoko canisters to avoid external dependencies.
+If you want to start working on your project right away, you might want to try the following commands:
 
-Event Creation & RSVP
+```bash
+cd alibi/
+dfx help
+dfx canister --help
+```
 
-Organizer Dashboard:
+## Running the project locally
 
-Input event details (name, date, capacity).
+If you want to test your project locally, you can use the following commands:
 
-Select AI art style (e.g., "Cyberpunk," "Minimalist").
+```bash
+# Starts the replica, running in the background
+dfx start --background
 
-Preview and batch-generate 10 sample tickets.
+# Deploys your canisters to the replica and generates your candid interface
+dfx deploy
+```
 
-Attendee Flow:
+Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
 
-RSVP with Internet Identity → Mint NFT → Receive QR code.
+If you have made changes to your backend canister, you can generate a new candid interface with
 
-QR Check-In System
+```bash
+npm run generate
+```
 
-Staff Interface: Mobile-first QR scanner with real-time validation.
+at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
 
-On-Chain Verification: Motoko canister checks ticket status (active, used, invalid).
+If you are making frontend changes, you can start a development server with
 
-Post-Event Utility
+```bash
+npm start
+```
 
-Unlockables: Post-check-in, NFT metadata updates with secret links (e.g., Discord invites, discount codes).
+Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
 
-Collectibles: Transform tickets into "Proof of Attendance" badges with AI-enhanced traits.
+### Note on frontend environment variables
 
-Technical Implementation
-Frontend (React, NextJs)
-UI Libraries:
+If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
 
-react-qr-reader for scanning.
-
-framer-motion for smooth transitions.
-
-react-query for caching canister data.
-
-Wallet Integration: Plug & Internet Identity for auth and NFT storage.
-
-Responsive Design: Mobile-first layout with Tailwind CSS.
-
-Backend (Motoko)
- 
-AI Integration
-Free Tools:
-
-Replicate.com (free tier) for Stable Diffusion XL.
-
-QRCode.js for generating SVG QR codes.
-
-Fallbacks:
-
-Pre-generate 20 ticket designs for demo purposes.
-
-Use CSS gradients/patterns if API fails.
-
-Key Challenges & Mitigation
-Challenge	Solution
-AI API rate limits	Cache responses; use mock data for demos.
-QR scan latency	Optimize Motoko canister queries.
-Wallet connectivity issues	Provide clear error toasts and retry buttons.
-SVG rendering lag	Preload assets; use <img> tags for SVGs.
-
-
-Demo Script
-Organizer:
-
-Creates "Neon Nights 2024" event → Generates 10 AI tickets.
-
-Attendee:
-
-RSVPs → Mints NFT → Views QR code in wallet.
-
-Staff:
-
-Scans QR → Updates ticket status → Triggers unlockables.
-
-Post-Event:
-
-Attendee accesses secret Discord link via NFT.
-
-Scalability Roadmap
-Phase 1: Batch AI art generation for 1,000+ tickets.
-
-Phase 2: Cross-chain compatibility (e.g., mint on ICP, resell on Ethereum).
-
-Phase 3: DAO governance for event organizers.
-
-Differentiators
-Zero Gas Fees: ICP’s reverse gas model for seamless UX.
-
-Provable Ownership: Dynamic NFTs with immutable attendance records.
-
-Cost Efficiency: Fully on-chain storage (SVGs + metadata).
-
-Final Deliverables:
-
-Functional MVP with AI tickets, QR check-in, and unlockables.
-
-GitHub repo with detailed setup guide.
-
-Pitch deck highlighting ICP’s advantages over competitors.
-
-Alibi? Your Proof of Presence
-
-
+- set`DFX_NETWORK` to `ic` if you are using Webpack
+- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
+  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
+- Write your own `createActor` constructor
