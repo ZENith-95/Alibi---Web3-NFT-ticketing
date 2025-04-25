@@ -41,3 +41,13 @@ button[type="submit"] {
 .browser-warning {
   display: none;
 }
+
+
+.link {
+  @apply text-gray-700 px-4  hover:text-gray-300 py-3;
+
+  &.active_link {
+      color: white;
+      @apply hover:text-gray-300;
+  }
+}

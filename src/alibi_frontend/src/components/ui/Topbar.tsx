@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { NavItemProp } from "../../types"
-import React from "react"
+import '../../styles/page.scss';
 
 export default function Topbar() {
     const links: NavItemProp[] = [
@@ -23,7 +23,7 @@ export default function Topbar() {
     ]
     return <header className="sticky top-0 w-full border-b border-border/40 bg-background/95 backdrop-blur  bg-black text-white">
         <div className="container flex h-14 max-w-screen-2xl items-center">
-            <div className="mr-4 hidden md:flex">
+            <div className="hidden md:flex">
                 <NavLink to="/" className="mr-6 flex items-center space-x-2">
                     <span className="hidden font-bold sm:inline-block">Alibi</span>
                 </NavLink>
