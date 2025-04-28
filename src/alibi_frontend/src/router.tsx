@@ -1,30 +1,52 @@
-import HomePage from './pages/HomePage'
-import TicketsPage from './pages/TicketsPage'
-import EventsPage from './pages/EventsPage'
-import ProfilePage from './pages/ProfilePage'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import MainLayout from './components/layouts/MainLayout'
+import LoadingSpinner from './components/ui/LoadingSpinner'
+import ErrorBoundary from './components/ErrorBoundary'
+
+// Lazy load page components for code splitting
+const HomePage = lazy(() => import('./pages/HomePage'))
+const TicketsPage = lazy(() => import('./pages/TicketsPage'))
+const EventsPage = lazy(() => import('./pages/EventsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 export const router = createBrowserRouter([
     {
         path: "/",
         element: <MainLayout />,
+        errorElement: <ErrorBoundary />,
         children: [
             {
                 index: true,
-                element: <HomePage />
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <HomePage />
+                    </Suspense>
+                )
             },
             {
                 path: "tickets",
-                element: <TicketsPage />
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <TicketsPage />
+                    </Suspense>
+                )
             },
             {
                 path: "events",
-                element: <EventsPage />
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <EventsPage />
+                    </Suspense>
+                )
             },
             {
                 path: "profile",
-                element: <ProfilePage />
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <ProfilePage />
+                    </Suspense>
+                )
             }
         ]
     }

@@ -6,7 +6,23 @@ module {
   public type TicketId = Text;
   public type TicketTypeId = Text;
   public type MintTicketResponse = Result.Result<Ticket, MintTicketError>;
- public type GetEventError = {
+  
+  // Pagination types
+  public type PaginatedEvents = {
+    events : [Event];
+    total : Nat;
+    offset : Nat;
+    limit : Nat;
+  };
+  
+  public type PaginatedTickets = {
+    tickets : [Ticket];
+    total : Nat;
+    offset : Nat;
+    limit : Nat;
+  };
+  
+  public type GetEventError = {
     #eventNotFound;
   };
   public type VerifyTicketRequest = {
@@ -51,13 +67,13 @@ module {
 
   // Event and Ticket types
   public type Error = {
-    #NotFound;
-    #AlreadyExists;
-    #NotAuthorized;
-    #SoldOut;
-    #InvalidInput;
-    #CannotModify;
-    #SystemError;
+    #NotFound : { message : Text };
+    #AlreadyExists : { message : Text };
+    #NotAuthorized : { message : Text };
+    #SoldOut : { message : Text };
+    #InvalidInput : { message : Text };
+    #CannotModify : { message : Text };
+    #SystemError : { message : Text };
   };
 
   public type Result<T> = Result.Result<T, Error>;

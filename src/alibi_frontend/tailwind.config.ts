@@ -1,14 +1,12 @@
 // tailwind.config.ts
 import type { Config } from "tailwindcss";
-import defaultTheme from 'tailwindcss/defaultTheme';
+import * as defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   darkMode: ["class"],
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "*.{js,ts,jsx,tsx,mdx}",
+    "./index.html", // Include the main HTML file
+    "./src/**/*.{js,ts,jsx,tsx}", // Include all relevant files within src
   ],
   theme: {
     container: {
@@ -103,4 +101,3 @@ const config: Config = {
 };
 
 export default config;
-

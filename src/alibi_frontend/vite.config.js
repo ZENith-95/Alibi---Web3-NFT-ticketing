@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
-import tailwindcss from '@tailwindcss/vite'
+// Removed incorrect tailwindcss import
 dotenv.config({ path: '../../.env' });
 
 export default defineConfig({
@@ -26,11 +26,14 @@ export default defineConfig({
     },
   },
   plugins: [
-    tailwindcss(),
+    // Removed incorrect tailwindcss() plugin
     react(),
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
   ],
+  css: {
+    postcss: './postcss.config.js',
+  },
   resolve: {
     alias: [
       {

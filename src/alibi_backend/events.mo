@@ -12,6 +12,8 @@ import Text "mo:base/Text";
 import Time "mo:base/Time";
 import TrieMap "mo:base/TrieMap";
 import Types "./types";
+import Debug "mo:base/Debug";
+import Option "mo:base/Option";
 
 actor Events {
   // State variables
@@ -22,27 +24,36 @@ actor Events {
   private let events = TrieMap.TrieMap<Nat, Types.Event>(Nat.equal, Int.hash);
   private let tickets = TrieMap.TrieMap<Nat, Types.Ticket>(Nat.equal, Int.hash);
   
+  // Cache for recent events query results
+  private var cachedEvents : ?[Types.Event] = null;
+  private var cacheTimestamp : Nat64 = 0;
+  private let CACHE_TTL : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
+  
   // Helper function to validate a CreateEventRequest
-  private func validateCreateEventRequest(request : Types.CreateEventRequest) : Bool {
-    if (Text.size(request.name) == 0) return false;
-    if (Text.size(request.description) == 0) return false;
-    if (Text.size(request.date) == 0) return false;
-    if (Text.size(request.time) == 0) return false;
-    if (Text.size(request.location) == 0) return false;
-    if (request.ticketTypes.size() == 0) return false;
+  private func validateCreateEventRequest(request : Types.CreateEventRequest) : Types.Result<Bool> {
+    if (Text.size(request.name) < 3) return #err(#InvalidInput { message = "Event name is too short" });
+    if (Text.size(request.description) < 10) return #err(#InvalidInput { message = "Event description is too short" });
+    if (Text.size(request.date) == 0) return #err(#InvalidInput { message = "Event date is required" });
+    if (Text.size(request.time) == 0) return #err(#InvalidInput { message = "Event time is required" });
+    if (Text.size(request.location) == 0) return #err(#InvalidInput { message = "Event location is required" });
+    if (request.ticketTypes.size() == 0) return #err(#InvalidInput { message = "At least one ticket type is required" });
     
     for (ticketType in Iter.fromArray(request.ticketTypes)) {
-      if (Text.size(ticketType.name) == 0) return false;
-      if (ticketType.capacity == 0) return false;
+      if (Text.size(ticketType.name) < 2) return #err(#InvalidInput { message = "Ticket type name is too short" });
+      if (ticketType.capacity == 0) return #err(#InvalidInput { message = "Ticket capacity must be greater than 0" });
     };
     
-    return true;
+    return #ok(true);
   };
   
   // Create a new event
   public shared({ caller }) func createEvent(request : Types.CreateEventRequest) : async Types.Result<Nat> {
-    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized);
-    if (not validateCreateEventRequest(request)) return #err(#InvalidInput);
+    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized { message = "Authentication required" });
+    
+    switch (validateCreateEventRequest(request)) {
+      case (#err(error)) { return #err(error) };
+      case (#ok(_)) {};
+    };
     
     let eventId = nextEventId;
     nextEventId += 1;
@@ -83,19 +94,69 @@ actor Events {
     };
     
     events.put(eventId, newEvent);
+    
+    // Invalidate cache when new event is created
+    cachedEvents := null;
+    
     #ok(eventId);
   };
   
-  // Get all events
+  // Get events with pagination
+  public query func getEvents(offset : Nat, limit : Nat) : async Types.PaginatedEvents {
+    let eventsArray = Iter.toArray(events.vals());
+    let totalEvents = eventsArray.size();
+    
+    let actualLimit = if (limit > 50) 50 else limit; // Limit maximum to 50 items
+    let actualOffset = if (offset >= totalEvents) 0 else offset;
+    
+    let endIndex = Nat.min(actualOffset + actualLimit, totalEvents);
+    
+    let page = if (actualOffset < totalEvents) {
+      Array.tabulate<Types.Event>(
+        endIndex - actualOffset,
+        func(i : Nat) : Types.Event {
+          eventsArray[actualOffset + i];
+        }
+      );
+    } else {
+      [];
+    };
+    
+    {
+      events = page;
+      total = totalEvents;
+      offset = actualOffset;
+      limit = actualLimit;
+    };
+  };
+  
+  // Get all events (with caching)
   public query func getAllEvents() : async [Types.Event] {
-    Iter.toArray(events.vals());
+    let currentTime = Nat64.fromNat(Int.abs(Time.now()));
+    
+    switch (cachedEvents) {
+      case (?events) {
+        // Return cached events if cache is not expired
+        if (currentTime < cacheTimestamp + CACHE_TTL) {
+          return events;
+        };
+      };
+      case (null) {};
+    };
+    
+    // Cache expired or not set, fetch new data
+    let eventsArray = Iter.toArray(events.vals());
+    cachedEvents := ?eventsArray;
+    cacheTimestamp := currentTime;
+    
+    eventsArray;
   };
   
   // Get event by ID
   public query func getEvent(eventId : Nat) : async Types.Result<Types.Event> {
     switch (events.get(eventId)) {
       case (?event) { #ok(event) };
-      case null { #err(#NotFound) };
+      case null { #err(#NotFound { message = "Event not found" }) };
     };
   };
   
@@ -112,22 +173,27 @@ actor Events {
   
   // Mint a new ticket
   public shared({ caller }) func mintTicket(request : Types.MintTicketRequest) : async Types.Result<Nat> {
-    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized);
+    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized { message = "Authentication required" });
     
     // Get the event
     switch (events.get(request.eventId)) {
-      case (null) { return #err(#NotFound) };
+      case (null) { return #err(#NotFound { message = "Event not found" }) };
       case (?event) {
+        // Check if event is active
+        if (not event.isActive) {
+          return #err(#InvalidInput { message = "Event is not active" });
+        };
+        
         // Check if ticket type exists
         if (request.ticketTypeId >= event.ticketTypes.size()) {
-          return #err(#InvalidInput);
+          return #err(#InvalidInput { message = "Invalid ticket type" });
         };
         
         let ticketType = event.ticketTypes[request.ticketTypeId];
         
         // Check if tickets are available
         if (ticketType.sold >= ticketType.capacity) {
-          return #err(#SoldOut);
+          return #err(#SoldOut { message = "This ticket type is sold out" });
         };
         
         // Create metadata for the ticket
@@ -197,8 +263,39 @@ actor Events {
         };
         
         events.put(event.id, updatedEvent);
+        cachedEvents := null; // Invalidate cache
+        
         return #ok(ticketId);
       };
+    };
+  };
+  
+  // Get tickets with pagination
+  public query func getTickets(offset : Nat, limit : Nat) : async Types.PaginatedTickets {
+    let ticketsArray = Iter.toArray(tickets.vals());
+    let totalTickets = ticketsArray.size();
+    
+    let actualLimit = if (limit > 50) 50 else limit; // Limit maximum to 50 items
+    let actualOffset = if (offset >= totalTickets) 0 else offset;
+    
+    let endIndex = Nat.min(actualOffset + actualLimit, totalTickets);
+    
+    let page = if (actualOffset < totalTickets) {
+      Array.tabulate<Types.Ticket>(
+        endIndex - actualOffset,
+        func(i : Nat) : Types.Ticket {
+          ticketsArray[actualOffset + i];
+        }
+      );
+    } else {
+      [];
+    };
+    
+    {
+      tickets = page;
+      total = totalTickets;
+      offset = actualOffset;
+      limit = actualLimit;
     };
   };
   
@@ -206,12 +303,16 @@ actor Events {
   public query func getTicket(ticketId : Nat) : async Types.Result<Types.Ticket> {
     switch (tickets.get(ticketId)) {
       case (?ticket) { #ok(ticket) };
-      case null { #err(#NotFound) };
+      case null { #err(#NotFound { message = "Ticket not found" }) };
     };
   };
   
   // Get tickets owned by a specific principal
   public query func getUserTickets(user : Principal) : async [Types.Ticket] {
+    if (Principal.isAnonymous(user)) {
+      return [];
+    };
+    
     let userTickets = Array.filter<Types.Ticket>(
       Iter.toArray(tickets.vals()),
       func(ticket : Types.Ticket) : Bool {
@@ -221,40 +322,57 @@ actor Events {
     userTickets;
   };
   
-  public shared({caller}) func deleteEvent(eventId : Nat) : async Types.Result<Bool> {
-    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized);
+  public shared({ caller }) func deleteEvent(eventId : Nat) : async Types.Result<Bool> {
+    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized { message = "Authentication required" });
     
     switch (events.get(eventId)) {
-      case (null) { return #err(#NotFound) };
+      case (null) { return #err(#NotFound { message = "Event not found" }) };
       case (?event) {
         if (not Principal.equal(caller, event.organizer)) {
-          return #err(#NotAuthorized);
+          return #err(#NotAuthorized { message = "Only the event organizer can delete this event" });
+        };
+        
+        // Check if there are tickets already minted
+        let eventTickets = Array.filter<Types.Ticket>(
+          Iter.toArray(tickets.vals()),
+          func(ticket : Types.Ticket) : Bool {
+            ticket.eventId == eventId;
+          }
+        );
+        
+        if (eventTickets.size() > 0) {
+          return #err(#CannotModify { message = "Cannot delete event with existing tickets" });
         };
         
         ignore events.remove(eventId);
+        cachedEvents := null; // Invalidate cache
+        
         return #ok(true);
       };
     };
   };
+  
   // Verify a ticket (mark as used)
   public shared({ caller }) func verifyTicket(ticketId : Nat) : async Types.Result<Bool> {
+    if (Principal.isAnonymous(caller)) return #err(#NotAuthorized { message = "Authentication required" });
+    
     switch (tickets.get(ticketId)) {
-      case (null) { return #err(#NotFound) };
+      case (null) { return #err(#NotFound { message = "Ticket not found" }) };
       case (?ticket) {
+        // Check if ticket is already used
+        if (ticket.isUsed) {
+          return #err(#InvalidInput { message = "Ticket already used" });
+        };
+        
         // Check if the event organizer is making the verification
         switch (events.get(ticket.eventId)) {
-          case (null) { return #err(#NotFound) };
+          case (null) { return #err(#NotFound { message = "Event not found" }) };
           case (?event) {
             if (not Principal.equal(caller, event.organizer)) {
-              return #err(#NotAuthorized);
+              return #err(#NotAuthorized { message = "Only the event organizer can verify tickets" });
             };
             
-            // Check if ticket is already used
-            if (ticket.isUsed) {
-              return #ok(false);  // Ticket already used
-            };
-            
-            // Mark the ticket as used
+            // Mark ticket as used
             let updatedTicket : Types.Ticket = {
               id = ticket.id;
               eventId = ticket.eventId;
@@ -266,25 +384,21 @@ actor Events {
             };
             
             tickets.put(ticketId, updatedTicket);
-            return #ok(true);  // Successfully verified
+            return #ok(true);
           };
         };
       };
     };
   };
   
-  // Get ticket QR code (in a real implementation, this would generate a secure QR code)
-  public query func getTicketQRCode(ticketId : Nat) : async Text {
-    switch (tickets.get(ticketId)) {
-      case (null) { "Error: Ticket not found" };
-      case (?ticket) {
-        // In a real implementation, we would generate a secure QR code here
-        // For now, we just return a simple SVG with the ticket ID
-        let qrCode = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='100' height='100'><rect width='100' height='100' fill='black'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='white'>Ticket #" # Nat.toText(ticketId) # "</text></svg>";
-        qrCode;
-      };
-    };
+  // System functions for resilience
+  system func preupgrade() {
+    // Reset cache before upgrade
+    cachedEvents := null;
   };
-
-
-}; 
+  
+  system func postupgrade() {
+    // Initialize cache timestamp after upgrade
+    cacheTimestamp := Nat64.fromNat(Int.abs(Time.now()));
+  };
+}
