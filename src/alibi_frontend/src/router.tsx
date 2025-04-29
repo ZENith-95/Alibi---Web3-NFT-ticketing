@@ -3,6 +3,9 @@ import { createBrowserRouter } from 'react-router-dom'
 import MainLayout from './components/layouts/MainLayout'
 import LoadingSpinner from './components/ui/LoadingSpinner'
 import ErrorBoundary from './components/ErrorBoundary'
+import OrganizerPage from './pages/organizer/OrganizerPage'
+import EventCreationPage from './pages/organizer/EventCreationPage'
+import ScanPage from './pages/ScanPage'
 
 // Lazy load page components for code splitting
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -47,7 +50,31 @@ export const router = createBrowserRouter([
                         <ProfilePage />
                     </Suspense>
                 )
-            }
+            }, {
+                path: "scan",
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <ScanPage />
+                    </Suspense>
+                )
+            },
+            {
+                path: "organizer",
+                element: (
+                    <Suspense fallback={<LoadingSpinner />}>
+                        <OrganizerPage />
+                    </Suspense>
+                ),
+                children: [
+                    {
+                        path: "create",
+                        element: (
+                            <Suspense fallback={<LoadingSpinner />}>
+                                <EventCreationPage />
+                            </Suspense>
+                        )
+                    }]
+            },
         ]
     }
 ])
