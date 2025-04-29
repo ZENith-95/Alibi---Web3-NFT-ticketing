@@ -2,15 +2,15 @@
 
 import React from 'react';
 import { useToast } from './use-toast';
-import type { ToastProps } from './use-toast';
+import { ToastProps } from './toast';
 
 // Basic Toast component
-const Toast: React.FC<ToastProps> = ({ id, title, description, action }) => {
+const Toast: React.FC<ToastProps> = ({ id, title, /*description, action*/ }) => {
   return (
     <div className="toast-container">
       {title && <div className="toast-title">{title}</div>}
-      {description && <div className="toast-description">{description}</div>}
-      {action && <div className="toast-action">{action}</div>}
+      {/* {description && <div className="toast-description">{description}</div>}
+      {action && <div className="toast-action">{action}</div>} */}
     </div>
   );
 };
@@ -24,11 +24,11 @@ export const Toaster: React.FC = () => {
     <div className="toaster">
       {(toasts as ToastProps[]).map((toast) => (
         <div key={toast.id} onClick={() => dismiss(toast.id)}>
-          <Toast 
+          <Toast
             id={toast.id}
-            title={toast.title} 
-            description={toast.description}
-            action={toast.action}
+            title={toast.title}
+            // description={toast.description}
+            // action={toast.action}
             variant={toast.variant}
             duration={toast.duration}
           />

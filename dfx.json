@@ -8,10 +8,15 @@
       "main": "src/alibi_backend/events.mo",
       "type": "motoko"
     },
+    "alibi_profile": {
+      "main": "src/alibi_backend/events.mo",
+      "type": "motoko"
+    },
     "alibi_frontend": {
       "dependencies": [
         "alibi_backend",
-        "alibi_events"
+        "alibi_events",
+        "alibi_profile"
       ],
       "source": [
         "src/alibi_frontend/dist"

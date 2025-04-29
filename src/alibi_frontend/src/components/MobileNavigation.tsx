@@ -1,4 +1,3 @@
-"use client"
 
 import { Link } from "react-router-dom"
 import { Home, QrCode, Ticket, User } from "lucide-react"
