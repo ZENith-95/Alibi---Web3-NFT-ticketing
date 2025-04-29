@@ -8,7 +8,6 @@
       "main": "src/alibi_backend/events.mo",
       "type": "motoko"
     },
-
     "alibi_frontend": {
       "dependencies": [
         "alibi_backend",
@@ -19,6 +18,17 @@
       ],
       "type": "assets",
       "workspace": "alibi_frontend"
+    },
+    "internet_identity": {
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "frontend": {},
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "type": "custom",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
     }
   },
   "defaults": {

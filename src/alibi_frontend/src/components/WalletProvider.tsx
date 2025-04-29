@@ -25,9 +25,9 @@ const WalletContext = createContext<WalletContextProps>({
   isAuthenticated: false,
   principal: null,
   authClient: null,
-  login: async () => {},
-  logout: async () => {},
-  refreshSession: async () => {},
+  login: async () => { },
+  logout: async () => { },
+  refreshSession: async () => { },
   identity: null,
   isLoading: true,
   getAgent: () => null,
@@ -43,7 +43,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);
   const [identity, setIdentity] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  
+
   // Check if auth token is valid and not expired
   const checkSession = useCallback(() => {
     const storedExpiration = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -61,21 +61,21 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return false;
   }, []);
-  
+
   // Initialize auth client
   const initAuth = useCallback(async () => {
     setIsLoading(true);
     try {
       const client = await AuthClient.create();
       setAuthClient(client);
-      
+
       // Check authentication status
       const isAuthed = await client.isAuthenticated();
-      
+
       if (isAuthed && checkSession()) {
         const id = client.getIdentity();
         const userPrincipal = id.getPrincipal();
-        
+
         setIdentity(id as any);
         setPrincipal(userPrincipal);
         setIsAuthenticated(true);
@@ -87,31 +87,31 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(false);
     }
   }, [checkSession]);
-  
+
   // Handle login
   const login = useCallback(async () => {
     if (!authClient) return;
-    
+
     try {
       // Set expiration date (e.g., 1 day from now)
       const expirationTime = Date.now() + DEFAULT_EXPIRATION_MS;
-      
+
       await authClient.login({
-        identityProvider: process.env.DFX_NETWORK === 'ic' 
-          ? 'https://identity.ic0.app' 
-          : `http://${process.env.CANISTER_ID_INTERNET_IDENTITY}.localhost:8000`,
+        identityProvider: process.env.DFX_NETWORK === 'ic'
+          ? 'https://identity.ic0.app'
+          : import.meta.env.VITE_CANISTER_ID_INTERNET_IDENTITY_HOST,
         onSuccess: async () => {
           const id = authClient.getIdentity();
           const userPrincipal = id.getPrincipal();
-          
+
           // Update auth state
           setIdentity(id as any);
           setPrincipal(userPrincipal);
           setIsAuthenticated(true);
-          
+
           // Store session expiration
           sessionStorage.setItem(SESSION_STORAGE_KEY, expirationTime.toString());
-          
+
           toast.success('Successfully logged in!');
         },
         onError: (error) => {
@@ -124,52 +124,52 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toast.error('Authentication failed. Please try again.');
     }
   }, [authClient]);
-  
+
   // Handle logout
   const logout = useCallback(async () => {
     if (!authClient) return;
-    
+
     try {
       await authClient.logout();
-      
+
       // Clear auth state
       setIsAuthenticated(false);
       setPrincipal(null);
       setIdentity(null);
-      
+
       // Clear session storage
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      
+
       toast.info('You have been logged out');
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout. Please try again.');
     }
   }, [authClient]);
-  
+
   // Refresh user session
   const refreshSession = useCallback(async () => {
     if (!authClient || !isAuthenticated) return;
-    
+
     try {
       // Set new expiration date
       const expirationTime = Date.now() + DEFAULT_EXPIRATION_MS;
       sessionStorage.setItem(SESSION_STORAGE_KEY, expirationTime.toString());
-      
+
       // Re-validate identity
       const id = authClient.getIdentity();
       const userPrincipal = id.getPrincipal();
-      
+
       setIdentity(id as any);
       setPrincipal(userPrincipal);
-      
+
       toast.success('Session refreshed successfully');
     } catch (error) {
       console.error('Session refresh error:', error);
       toast.error('Failed to refresh session');
     }
   }, [authClient, isAuthenticated]);
-  
+
   // Auto-refresh session if it's about to expire
   useEffect(() => {
     if (isAuthenticated) {
@@ -177,24 +177,24 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (storedExpiration) {
         const expirationTime = parseInt(storedExpiration, 10);
         const timeUntilExpiration = expirationTime - Date.now();
-        
+
         // If session expires in less than 1 hour, refresh it
         if (timeUntilExpiration > 0 && timeUntilExpiration < 60 * 60 * 1000) {
           refreshSession();
         }
-        
+
         // Set up timer to check session periodically
         const intervalId = setInterval(checkSession, 5 * 60 * 1000); // Check every 5 minutes
         return () => clearInterval(intervalId);
       }
     }
   }, [isAuthenticated, checkSession, refreshSession]);
-  
+
   // Initialize auth on component mount
   useEffect(() => {
     initAuth();
   }, [initAuth]);
-  
+
   // Function to get a new agent instance with the current identity
   const getAgent = useCallback(() => {
     if (identity) {
@@ -202,7 +202,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     return null;
   }, [identity]);
-  
+
   const value = {
     isAuthenticated,
     principal,
@@ -214,7 +214,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isLoading,
     getAgent,
   };
-  
+
   return (
     <WalletContext.Provider value={value}>
       {children}

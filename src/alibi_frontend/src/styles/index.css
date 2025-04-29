@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @font-face {
   font-family: "Kanit";
   src: url("/fonts/Kanit-Regular.ttf") format("truetype");
@@ -53,9 +57,6 @@
 }
 
 /* Then include Tailwind layers */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* Apply base styles using the defined variables */
 @layer base {
