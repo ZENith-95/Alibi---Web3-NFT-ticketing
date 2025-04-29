@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Button } from "./ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
 import { Lightbulb, Check, X, RefreshCw, QrCode, Ticket, Loader2 } from "lucide-react"
-import { toast } from "./ui/use-toast"
-import { Badge } from "./ui/badge"
+// import { toast } from "./ui/use-toast"
+import { toast } from "../../components/ui/use-toast"
+import { Badge } from "../../components/ui/badge"
 
 export function QRScanner() {
   const [scanning, setScanning] = useState(false)
