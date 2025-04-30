@@ -7,13 +7,18 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 // import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Plus, Trash, Loader2 } from "lucide-react";
+import { Plus, Trash, Loader2, Upload, Image as ImageIcon } from "lucide-react"; // Added Upload, ImageIcon
 import { format } from "date-fns";
-import { toast } from "../../components/ui/use-toast";
+// import { toast } from "../../components/ui/use-toast"; // Using sonner toast instead
 import { CreateEventRequest, icApi } from "../../lib/ic-api";
 import { useNavigate } from "react-router-dom";
 import { CreateTicketTypeRequest } from "../../../../declarations/alibi_events/alibi_events.did";
 import { Textarea } from "../../components/ui/textarea";
+import { useWallet } from "../../components/WalletProvider"; // Import useWallet for agent
+import { Actor, HttpAgent } from "@dfinity/agent"; // Import Actor and HttpAgent
+import { toast } from "sonner"; // Using sonner toast
+import { Principal } from "@dfinity/principal"; // Import Principal
+import { IDL } from "@dfinity/candid"; // Import IDL
 export function EventCreationForm() {
   const [date, setDate] = useState<Date>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,7 +32,13 @@ export function EventCreationForm() {
   const [eventLocation, setEventLocation] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventTime, setEventTime] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const navigate = useNavigate();
+  const { identity } = useWallet(); // Get identity for authenticated calls
   useEffect(() => {
     // Debug effect to log when the date changes
     if (date) {
@@ -35,6 +46,141 @@ export function EventCreationForm() {
       console.log("Formatted date:", format(date, "yyyy-MM-dd"));
     }
   }, [date]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Basic validation (e.g., file type, size)
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please select an image file.");
+        return;
+      }
+      // Add size validation if needed: e.g., if (file.size > 2 * 1024 * 1024) { toast.error("File size exceeds 2MB"); return; }
+      setSelectedFile(file);
+      setImageUrl(null); // Reset URL if a new file is selected
+      setUploadError(null);
+    }
+  };
+
+  // --- Asset Canister Upload Implementation ---
+
+  // Minimal interface for asset canister actor
+  interface AssetCanisterActor {
+    create_batch: () => Promise<{ batch_id: string }>;
+    create_chunk: (args: { batch_id: string; content: number[] }) => Promise<{ chunk_id: string }>;
+    commit_batch: (args: {
+      batch_id: string;
+      chunk_ids: string[];
+      headers: Array<[string, string]>;
+      content_type: string;
+    }) => Promise<void>;
+  }
+
+  // Define the IDL factory inline for the necessary methods
+  // Corrected to match InterfaceFactory type (no arguments)
+  const assetCanisterIdlFactory: IDL.InterfaceFactory = () => {
+    return IDL.Service({
+      create_batch: IDL.Func([], [IDL.Record({ batch_id: IDL.Text })], []),
+      create_chunk: IDL.Func(
+        [IDL.Record({ batch_id: IDL.Text, content: IDL.Vec(IDL.Nat8) })],
+        [IDL.Record({ chunk_id: IDL.Text })],
+        [],
+      ),
+      commit_batch: IDL.Func(
+        [
+          IDL.Record({
+            batch_id: IDL.Text,
+            chunk_ids: IDL.Vec(IDL.Text),
+            headers: IDL.Vec(IDL.Tuple(IDL.Text, IDL.Text)),
+            content_type: IDL.Text,
+          }),
+        ],
+        [],
+        [],
+      ),
+    });
+  };
+
+
+  const handleImageUpload = async (): Promise<string | null> => {
+     if (!selectedFile) {
+       toast.error("No file selected.");
+       return null;
+    }
+    if (!identity) {
+       toast.error("User not authenticated. Cannot upload image.");
+       return null;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+    toast.info("Starting image upload...");
+
+    const canisterId = process.env.CANISTER_ID_ALIBI_FRONTEND;
+    if (!canisterId) {
+      toast.error("Frontend canister ID not found in environment variables.");
+      setIsUploading(false);
+      return null;
+    }
+
+    try {
+      const agent = new HttpAgent({ identity });
+      if (process.env.DFX_NETWORK !== 'ic') {
+        await agent.fetchRootKey();
+      }
+
+      const assetActor = Actor.createActor<AssetCanisterActor>(assetCanisterIdlFactory, {
+        agent,
+        canisterId: Principal.fromText(canisterId),
+      });
+
+      const fileBuffer = await selectedFile.arrayBuffer();
+      const fileBytes = new Uint8Array(fileBuffer);
+
+      const { batch_id } = await assetActor.create_batch();
+      const chunkSize = 1024 * 1024; // 1MB chunks
+      const chunkIds: string[] = [];
+
+      for (let i = 0; i < fileBytes.length; i += chunkSize) {
+        const chunk = Array.from(fileBytes.slice(i, i + chunkSize));
+        const { chunk_id } = await assetActor.create_chunk({ batch_id, content: chunk });
+        chunkIds.push(chunk_id);
+        // Optional: Update progress indicator here
+        toast.info(`Uploaded chunk ${chunkIds.length}...`);
+      }
+
+      await assetActor.commit_batch({
+        batch_id,
+        chunk_ids: chunkIds,
+        headers: [], // Add headers if needed, e.g., Cache-Control
+        content_type: selectedFile.type,
+      });
+
+      // Construct the URL - Use standard local asset canister format
+      const host = process.env.DFX_NETWORK === 'ic'
+        ? `https://${canisterId}.raw.icp0.io` // Basic mainnet URL (consider certified domains)
+        : `http://localhost:4943`;
+      // Use query parameter for local canister ID
+      const finalUrl = process.env.DFX_NETWORK === 'ic'
+         ? `${host}/${selectedFile.name}`
+         : `${host}/${selectedFile.name}?canisterId=${canisterId}`;
+
+      setIsUploading(false);
+      toast.success("Image uploaded successfully!");
+      setImageUrl(finalUrl);
+      return finalUrl;
+
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast.error(`Image upload failed: ${error.message || 'Unknown error'}`);
+      setUploadError("Failed to upload image.");
+      setIsUploading(false);
+      return null;
+    }
+  };
+
+  // --- End Asset Canister Upload Implementation ---
+
 
   const addTicketType = () => {
     setTicketTypes([...ticketTypes, { name: "", price: "", capacity: "" }]);
@@ -58,10 +204,13 @@ export function EventCreationForm() {
     setTimeout(() => {
       setIsGeneratingPreview(false);
       setPreviewGenerated(true);
-      toast({
-        title: "Preview Generated",
-        description: "AI has generated a preview of your event ticket.",
-      });
+      // Using sonner toast:
+      toast.info("AI has generated a preview of your event ticket.");
+      // Original toast call (commented out):
+      // toast({
+      //   title: "Preview Generated",
+      //   description: "AI has generated a preview of your event ticket.",
+      // });
     }, 2000);
   };
 
@@ -71,21 +220,25 @@ export function EventCreationForm() {
 
     try {
       if (!date) {
-        toast({
-          title: "Error",
-          description: "Please select a date for your event.",
-          variant: "destructive",
-        });
+        toast.error("Please select a date for your event.");
+        // Original toast call (commented out):
+        // toast({
+        //   title: "Error",
+        //   description: "Please select a date for your event.",
+        //   variant: "destructive",
+        // });
         setIsSubmitting(false);
         return;
       }
 
       if (ticketTypes.some(ticket => !ticket.name || !ticket.price || !ticket.capacity)) {
-        toast({
-          title: "Error",
-          description: "Please fill out all ticket type fields.",
-          variant: "destructive",
-        });
+         toast.error("Please fill out all ticket type fields.");
+        // Original toast call (commented out):
+        // toast({
+        //   title: "Error",
+        //   description: "Please fill out all ticket type fields.",
+        //   variant: "destructive",
+        // });
         setIsSubmitting(false);
         return;
       }
@@ -94,14 +247,25 @@ export function EventCreationForm() {
       const formattedDate = format(date, "yyyy-MM-dd");
       console.log("Formatted date:", formattedDate);
 
-      // Create the request object
+      // 1. Upload image if selected
+      let finalImageUrl: string | null = imageUrl; // Use already uploaded URL if available
+      if (selectedFile && !imageUrl) { // Only upload if file selected and not already uploaded
+        finalImageUrl = await handleImageUpload();
+        if (!finalImageUrl) {
+          // Upload failed, stop submission
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // 2. Create the event request object
       const request: CreateEventRequest = {
         name: eventName,
         description: eventDescription,
         date: formattedDate,
         time: eventTime || "12:00",
         location: eventLocation,
-        imageUrl: [], // No image for now
+        imageUrl: finalImageUrl ? [finalImageUrl] : [], // Use optional array syntax for ?Text
         artStyle: artStyle,
         ticketTypes: ticketTypes.map(tt => ({
           name: tt.name,
@@ -117,34 +281,39 @@ export function EventCreationForm() {
       const result = await icApi.createEvent(request);
 
       if ("ok" in result) {
-        toast({
-          title: "Event Created",
-          description: "Your event has been created successfully with ID: " + result.ok.toString(),
-        });
+        toast.success(`Event created successfully with ID: ${result.ok.toString()}`);
+        // Original toast call (commented out):
+        // toast({
+        //   title: "Event Created",
+        //   description: "Your event has been created successfully with ID: " + result.ok.toString(),
+        // });
         navigate("/organizer");
       } else {
-        let errorMessage = "Unknown error";
+        let errorMessage = "Error creating event: Unknown error";
         if ("NotAuthorized" in result.err) {
           errorMessage = "You are not authorized to create events.";
         } else if ("InvalidInput" in result.err) {
           errorMessage = "Invalid input data. Please check your form.";
         } else if ("SystemError" in result.err) {
-          errorMessage = "System error. Please try again later.";
+          errorMessage = `Error creating event: System error. Please try again later. (${JSON.stringify(result.err)})`;
         }
-
-        toast({
-          title: "Error Creating Event",
-          description: errorMessage,
-          variant: "destructive",
-        });
+        toast.error(errorMessage);
+        // Original toast call (commented out):
+        // toast({
+        //   title: "Error Creating Event",
+        //   description: errorMessage,
+        //   variant: "destructive",
+        // });
       }
     } catch (error) {
       console.error("Error creating event:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create event. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Failed to create event. Please try again.");
+      // Original toast call (commented out):
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to create event. Please try again.",
+      //   variant: "destructive",
+      // });
     } finally {
       setIsSubmitting(false);
     }
@@ -227,6 +396,41 @@ export function EventCreationForm() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Image Upload Section */}
+            <div className="space-y-2">
+              <Label htmlFor="eventImage">Event Image</Label>
+              <Input
+                id="eventImage"
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              />
+              {selectedFile && !isUploading && !imageUrl && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  <span>{selectedFile.name}</span>
+                  <Button type="button" size="sm" variant="ghost" onClick={handleImageUpload} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Upload
+                  </Button>
+                </div>
+              )}
+              {isUploading && (
+                 <div className="text-sm text-muted-foreground flex items-center gap-2">
+                   <Loader2 className="h-4 w-4 animate-spin" /> Uploading...
+                 </div>
+              )}
+              {imageUrl && (
+                <div className="text-sm text-green-600">Image uploaded: {imageUrl}</div>
+              )}
+               {uploadError && (
+                <div className="text-sm text-red-600">{uploadError}</div>
+              )}
+            </div>
+             {/* End Image Upload Section */}
+
 
             <div className="space-y-2">
               <Label htmlFor="description">Event Description</Label>
@@ -326,4 +530,3 @@ export function EventCreationForm() {
     </form>
   );
 }
-

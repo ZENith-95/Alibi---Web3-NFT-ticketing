@@ -49,10 +49,10 @@ class IcApi {
   }
 
   // Update identity for authenticated calls
-  public async updateIdentity(identity: any | null) {
+  public updateIdentity(identity: any | null) {
     if (identity) {
       this.agent = new HttpAgent({ host: HOST, identity });
-      } else {
+    } else {
       this.agent = new HttpAgent({ host: HOST }); // Reset to anonymous
     }
     // Re-create actors with the new agent
@@ -69,16 +69,13 @@ class IcApi {
     return this.profileActor.getProfile();
   }
   
-  async updateProfile(bio: string): Promise<any> {
-    // Assuming updateProfile exists in your ProfileService
-    // You might need to add this method in your backend and declarations
-    // return this.profileActor.updateProfile(bio);
-    console.warn("updateProfile method not fully implemented in icApi");
-    return Promise.resolve(); // Placeholder
+  async updateProfile(username: string, bio: string): Promise<any> {
+    return this.profileActor.updateProfile(username, bio);
   }
 
   // --- Event Canister Methods ---
   async createEvent(request: CreateEventRequest): Promise<any> {
+
     return this.eventActor.createEvent(request);
   }
 
@@ -88,6 +85,10 @@ class IcApi {
 
   async getEvent(eventId: bigint): Promise<any> {
     return this.eventActor.getEvent(eventId);
+  }
+
+  async getOrganizerEvents(principal: Principal): Promise<Event[]> {
+    return this.eventActor.getOrganizerEvents(principal);
   }
 
   async mintTicket(eventId: bigint, ticketTypeId: bigint, imageUrl: string): Promise<any> {

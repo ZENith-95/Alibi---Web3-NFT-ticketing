@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
@@ -12,14 +13,84 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { Link } from "react-router-dom"
+import { icApi } from '../../lib/ic-api'; // Import icApi
+import { useWallet } from '../../components/WalletProvider'; // Import useWallet
+import { Event } from '../../../../declarations/alibi_events/alibi_events.did'; // Import Event type
+import { toast } from 'sonner'; // Import sonner toast
+import { Loader2 } from 'lucide-react'; // Import Loader2 for loading state
 
-interface EventListProps {
-  events: any[]
-}
 
-export function EventList({ events }: EventListProps) {
-  const activeEvents = events.filter((event) => new Date(event.date) >= new Date())
-  const pastEvents = events.filter((event) => new Date(event.date) < new Date())
+export function EventList() {
+  const { principal, isAuthenticated } = useWallet(); // Get principal and auth status
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOrganizerEvents = async () => {
+      if (!isAuthenticated || !principal) {
+        setLoading(false);
+        setEvents([]);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const fetchedEvents = await icApi.getOrganizerEvents(principal);
+        setEvents(fetchedEvents);
+      } catch (e: any) {
+        console.error("Error fetching organizer events:", e);
+        setError(`Failed to fetch events: ${e.message || 'Unknown error'}`);
+        setEvents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrganizerEvents();
+  }, [isAuthenticated, principal]); // Refetch when auth status or principal changes
+
+  const activeEvents = events.filter((event) => new Date(event.date) >= new Date());
+  const pastEvents = events.filter((event) => new Date(event.date) < new Date());
+
+  if (!isAuthenticated) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <h3 className="text-xl font-medium mb-2">Authentication Required</h3>
+          <p className="text-muted-foreground max-w-md mb-6">
+            Please log in to view and manage your events.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+       <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+           <Loader2 className="h-12 w-12 text-muted-foreground mb-4 animate-spin" />
+           <h3 className="text-xl font-medium mb-2">Loading Events...</h3>
+        </CardContent>
+       </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center text-red-500">
+          <h3 className="text-xl font-medium mb-2">Error Loading Events</h3>
+          <p className="text-muted-foreground max-w-md mb-6 text-red-500">
+            {error}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
 
   if (events.length === 0) {
     return (
@@ -45,7 +116,7 @@ export function EventList({ events }: EventListProps) {
         {activeEvents.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
             {activeEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
+              <EventCard key={event.id.toString()} event={event} />
             ))}
           </div>
         ) : (
@@ -62,7 +133,7 @@ export function EventList({ events }: EventListProps) {
           <h2 className="text-xl font-bold mb-4">Past Events</h2>
           <div className="grid grid-cols-1 gap-4">
             {pastEvents.map((event) => (
-              <EventCard key={event.id} event={event} isCompleted />
+              <EventCard key={event.id.toString()} event={event} isCompleted />
             ))}
           </div>
         </div>
@@ -71,15 +142,17 @@ export function EventList({ events }: EventListProps) {
   )
 }
 
-function EventCard({ event, isCompleted = false }: { event: any; isCompleted?: boolean }) {
-  const percentageSold = Math.round((event.ticketsSold / event.capacity) * 100)
+function EventCard({ event, isCompleted = false }: { event: Event; isCompleted?: boolean }) {
+  // Ensure event.totalCapacity is not zero to avoid division by zero
+  const percentageSold = event.totalCapacity > 0 ? Math.round((Number(event.ticketsSold) / Number(event.totalCapacity)) * 100) : 0;
+
 
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col md:flex-row">
         <div className="w-full md:w-1/4 h-40 md:h-auto">
           <img
-            src={event.imageUrl || "/placeholder.svg?height=200&width=200&text=Event+Image"}
+            src={event.imageUrl && event.imageUrl.length > 0 ? event.imageUrl[0] : "/placeholder.svg?height=200&width=200&text=Event+Image"}
             alt={event.name}
             className="w-full h-full object-cover"
             crossOrigin="anonymous"
@@ -133,7 +206,7 @@ function EventCard({ event, isCompleted = false }: { event: any; isCompleted?: b
             <div className="flex items-center text-sm text-muted-foreground">
               <Users className="mr-2 h-4 w-4 text-primary" />
               <span>
-                {event.ticketsSold} / {event.capacity} Attendees
+                {Number(event.ticketsSold)} / {Number(event.totalCapacity)} Attendees
               </span>
             </div>
           </div>
@@ -148,7 +221,7 @@ function EventCard({ event, isCompleted = false }: { event: any; isCompleted?: b
 
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm" variant={isCompleted ? "outline" : "default"}>
-              <Link to={`/organizer/event/${event.id}`}>{isCompleted ? "View Summary" : "Manage Event"}</Link>
+              <Link to={`/organizer/event/${event.id.toString()}`}>{isCompleted ? "View Summary" : "Manage Event"}</Link>
             </Button>
             {!isCompleted && (
               <Button asChild size="sm" variant="outline">
@@ -164,4 +237,3 @@ function EventCard({ event, isCompleted = false }: { event: any; isCompleted?: b
     </Card>
   )
 }
-

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button";
-import { Link } from "react-router-dom"
+import { Link, Outlet } from "react-router-dom" // Import Outlet
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
 import { Calendar, Plus, Ticket, Users, TrendingUp, QrCode, } from "lucide-react"
@@ -15,6 +15,7 @@ export default function OrganizerPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#0F0F1A] to-[#1A1A2C] text-[#E0E0FF]">
       <main className="container mx-auto px-4 py-8">
         <OrganizerDashboard />
+        <Outlet /> {/* Add Outlet here */}
       </main>
     </div>
   )
@@ -82,7 +83,7 @@ export function OrganizerDashboard() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Organizer Dashboard</h1>
-        <Button asChild>
+        <Button>
           <Link to="/organizer/create">
             <Plus className="mr-2 h-4 w-4" />
             Create Event
@@ -165,7 +166,7 @@ export function OrganizerDashboard() {
             </TabsList>
 
             <TabsContent value="events">
-              <EventList events={events} />
+              <EventList /> {/* Removed events prop */}
             </TabsContent>
 
             <TabsContent value="analytics">
@@ -177,4 +178,3 @@ export function OrganizerDashboard() {
     </div>
   )
 }
-
