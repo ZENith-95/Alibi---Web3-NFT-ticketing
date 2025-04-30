@@ -7,7 +7,7 @@ import type { ToastActionElement, ToastProps } from "../ui/toast"
 const TOAST_LIMIT = 5
 const TOAST_REMOVE_DELAY = 1000000
 
-type ToasterToast = ToastProps & {
+export type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
@@ -184,4 +184,3 @@ function addToRemoveQueue(toastId: string) {
 }
 
 export { useToast, toast }
-

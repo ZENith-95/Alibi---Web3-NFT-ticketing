@@ -43,5 +43,8 @@
     }
   },
   "output_env_file": ".env",
-  "version": 1
+  "version": 1,
+  "replica": {
+    "message_size_limit": 5000000
+  }
 }

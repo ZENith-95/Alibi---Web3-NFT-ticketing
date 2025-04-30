@@ -1,10 +1,15 @@
+"use client"
+
+import { Link } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 import { Button } from "./ui/button"
 import { Ticket } from "lucide-react"
 import { AuthButton } from "./auth-button"
-import { Link } from "react-router-dom"
 
 export function SiteHeader() {
-  var isOrganizer = window.location.pathname.startsWith("/organizer")
+  const { pathname } = useLocation()
+  const isOrganizer = pathname?.startsWith("/organizer") || false
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -16,23 +21,26 @@ export function SiteHeader() {
           <nav className="hidden md:flex gap-6">
             <Link
               to="/"
-              className={`text-sm font-medium transition-colors hover:text-cyan-400 ${window.location.pathname === "/" ? "text-cyan-400" : "text-muted-foreground"
-                }`}
+              className={`text-sm font-medium transition-colors hover:text-cyan-400 ${
+                pathname === "/" ? "text-cyan-400" : "text-muted-foreground"
+              }`}
             >
               Discover
             </Link>
             <Link
               to="/tickets"
-              className={`text-sm font-medium transition-colors hover:text-cyan-400 ${window.location.pathname === "/tickets" ? "text-cyan-400" : "text-muted-foreground"
-                }`}
+              className={`text-sm font-medium transition-colors hover:text-cyan-400 ${
+                pathname === "/tickets" ? "text-cyan-400" : "text-muted-foreground"
+              }`}
             >
               My Tickets
             </Link>
             {isOrganizer ? (
               <Link
                 to="/organizer"
-                className={`text-sm font-medium transition-colors hover:text-cyan-400 ${window.location.pathname === "/organizer" ? "text-cyan-400" : "text-muted-foreground"
-                  }`}
+                className={`text-sm font-medium transition-colors hover:text-cyan-400 ${
+                  pathname === "/organizer" ? "text-cyan-400" : "text-muted-foreground"
+                }`}
               >
                 Dashboard
               </Link>
@@ -58,4 +66,3 @@ export function SiteHeader() {
     </header>
   )
 }
-

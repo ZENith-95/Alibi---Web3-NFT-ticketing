@@ -99,7 +99,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await authClient.login({
         identityProvider: process.env.DFX_NETWORK === 'ic'
           ? 'https://identity.ic0.app'
-          : import.meta.env.VITE_CANISTER_ID_INTERNET_IDENTITY_HOST,
+          : `http://${process.env.CANISTER_ID_INTERNET_IDENTITY}.localhost:4943`,
         onSuccess: async () => {
           const id = authClient.getIdentity();
           const userPrincipal = id.getPrincipal();
