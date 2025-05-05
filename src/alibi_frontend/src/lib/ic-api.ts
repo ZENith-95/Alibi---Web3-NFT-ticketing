@@ -4,6 +4,7 @@ import { Principal } from '@dfinity/principal';
 // Import generated IDL factories
 import { idlFactory as profileIdlFactory } from '../../../declarations/alibi_backend/alibi_backend.did.js';
 import { idlFactory as eventIdlFactory } from '../../../declarations/alibi_events/alibi_events.did.js';
+import { idlFactory as containerFactory } from '../../../declarations/alibi_container/alibi_container.did.js';
 
 // Import Candid types
 import type { _SERVICE as ProfileService } from '../../../declarations/alibi_backend/alibi_backend.did';
@@ -15,6 +16,7 @@ export type { Event, CreateEventRequest };
 // Define canister IDs (replace with your actual canister IDs)
 const PROFILE_CANISTER_ID = process.env.CANISTER_ID_ALIBI_BACKEND || '';
 const EVENT_CANISTER_ID = process.env.CANISTER_ID_ALIBI_EVENTS || '';
+const CONTAINER_CANISTER_ID = process.env.CANISTER_ID_ALIBI_CONTAINER || '';
 
 // Define the host (defaults to local replica)
 const HOST = process.env.DFX_NETWORK === 'ic' ? 'https://icp-api.io' : 'http://localhost:4943';
@@ -23,14 +25,15 @@ class IcApi {
   private agent: HttpAgent;
   private profileActor: any; // Using 'any' instead of generic Actor type
   private eventActor: any;   // Using 'any' instead of generic Actor type
-
+  private containerActor: any;
   constructor() {
     this.agent = new HttpAgent({ host: HOST });
-    
+
     // Initialize actors with default anonymous identity
     this.profileActor = this.createActor(profileIdlFactory, PROFILE_CANISTER_ID);
     this.eventActor = this.createActor(eventIdlFactory, EVENT_CANISTER_ID);
-    
+    this.containerActor = this.createActor(containerFactory,CONTAINER_CANISTER_ID)
+
     // Fetch root key for local development
     if (process.env.DFX_NETWORK !== 'ic') {
       this.agent.fetchRootKey().catch(err => {
@@ -68,7 +71,7 @@ class IcApi {
   async getProfile(): Promise<any> {
     return this.profileActor.getProfile();
   }
-  
+
   async updateProfile(username: string, bio: string): Promise<any> {
     return this.profileActor.updateProfile(username, bio);
   }
@@ -96,12 +99,12 @@ class IcApi {
     const request = { eventId, ticketTypeId, imageUrl };
     return this.eventActor.mintTicket(request);
   }
-  
+
   async getUserTickets(principal: Principal): Promise<any> {
     // Assuming getUserTickets takes a Principal
     return this.eventActor.getUserTickets(principal);
   }
-  
+
   async verifyTicket(ticketId: bigint): Promise<any> {
     // Assuming verifyTicket takes a ticketId
     return this.eventActor.verifyTicket(ticketId);

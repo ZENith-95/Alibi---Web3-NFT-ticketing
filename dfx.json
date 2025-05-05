@@ -4,6 +4,10 @@
       "main": "src/alibi_backend/main.mo",
       "type": "motoko"
     },
+    "alibi_container": {
+      "main": "src/alibi_backend/bucket/Container.mo",
+      "type": "motoko"
+    },
     "alibi_events": {
       "main": "src/alibi_backend/events.mo",
       "type": "motoko"
@@ -16,7 +20,8 @@
       "dependencies": [
         "alibi_backend",
         "alibi_events",
-        "alibi_profile"
+        "alibi_profile",
+        "alibi_container"
       ],
       "source": [
         "src/alibi_frontend/dist"

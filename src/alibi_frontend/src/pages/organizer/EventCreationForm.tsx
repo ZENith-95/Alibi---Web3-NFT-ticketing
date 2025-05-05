@@ -530,3 +530,61 @@ export function EventCreationForm() {
     </form>
   );
 }
+
+
+
+const MAX_CHUNK_SIZE = 1024 * 500; // 500kb
+
+const getReverseFileExtension = (type: { string: null }) : string => {
+  switch(Object.keys(type)[0]) {
+    case 'jpeg':
+      return  'image/jpeg';
+    case 'gif':
+      return  'image/gif'; 
+    case 'jpg':
+      return  'image/jpg';       
+    case 'png':
+      return  'image/png';
+    case 'svg':
+      return  'image/svg';
+    case 'avi':
+      return  'video/avi';
+    case 'mp4':
+      return  'video/mp4';
+    case 'aac':
+      return  'video/aac';
+    case 'wav':
+      return  'audio/wav';
+    case 'mp3':
+      return  'audio/mp3';                                                                                                              
+    default :
+    return "";
+  }
+};
+
+const getFileExtension = (type: string) => {
+  switch(type) {
+    case 'image/jpeg':
+      return { 'jpeg' : null };
+    case 'image/gif':
+      return { 'gif' : null };
+    case 'image/jpg':
+      return { 'jpg' : null };
+    case 'image/png':
+      return { 'png' : null };          
+    case 'image/svg':
+      return { 'svg' : null };          
+    case 'video/avi':
+      return { 'avi' : null };                            
+    case 'video/aac':
+      return { 'aac' : null };
+    case 'video/mp4':
+      return { 'mp4' : null };        
+    case 'audio/wav':
+      return { 'wav' : null };                         
+    case 'audio/mp3':
+      return { 'mp3' : null };
+    default :
+    return null;
+  }
+};
